@@ -131,7 +131,6 @@ namespace LocalAchievements
         {
             if (_syncService.IsSteamToolsGame(game))
             {
-                // A Tag em si não é traduzida no banco de dados para não quebrar filtros do usuário
                 Tag steamToolsTag = PlayniteApi.Database.Tags.FirstOrDefault(t => t.Name == "Steam Tools");
                 if (steamToolsTag == null)
                 {

@@ -71,8 +71,6 @@ namespace LocalAchievements.Services
                 string jsonPath = Path.Combine(_api.Paths.ExtensionsDataPath, SSGuid, "SuccessStory", $"{game.Id}.json");
                 if (!File.Exists(jsonPath)) return 0;
 
-                // --- O QUEBRADOR DE ESCUDOS ---
-                // Garante que o arquivo possa ser escrito removendo o atributo de "Somente Leitura" que colocamos na versão anterior
                 var attributes = File.GetAttributes(jsonPath);
                 if ((attributes & FileAttributes.ReadOnly) == FileAttributes.ReadOnly)
                 {
@@ -85,7 +83,7 @@ namespace LocalAchievements.Services
 
                 foreach (var ach in db.Items)
                 {
-                    // Proteção contra a data falsa do SuccessStory (Ano Zero)
+                    
                     if (ach.DateUnlocked.HasValue && ach.DateUnlocked.Value.Year > 2000) 
                         continue;
 
@@ -126,10 +124,8 @@ namespace LocalAchievements.Services
         {
             if (string.IsNullOrWhiteSpace(jsonApiName)) return false;
 
-            // Match Exato
             if (string.Equals(localKey, jsonApiName, StringComparison.OrdinalIgnoreCase)) return true;
 
-            // Match de ID (ex: "1" casa com "NEW_ACHIEVEMENT_1_1")
             if (jsonApiName.EndsWith("_" + localKey, StringComparison.OrdinalIgnoreCase)) return true;
 
             return false;

@@ -33,7 +33,6 @@ namespace LocalAchievements.Services
                 string currentStatId = "";
                 for (int j = 0; j < tokens.Count - 2; j++)
                 {
-                    // Descobre a qual grupo a conquista pertence (ex: 101, 102)
                     if (tokens[j + 1].Equals("bits", StringComparison.OrdinalIgnoreCase) && IsNumeric(tokens[j]))
                     {
                         currentStatId = tokens[j];
@@ -44,7 +43,6 @@ namespace LocalAchievements.Services
                         string bitId = tokens[j];
                         string apiName = tokens[j + 2];
                         
-                        // Salva o mapeamento exato (Ex: "101_0" = "Achievement1")
                         if (!string.IsNullOrEmpty(currentStatId)) {
                             map[currentStatId + "_" + bitId] = apiName;
                         }
@@ -73,10 +71,9 @@ namespace LocalAchievements.Services
                 string currentStatId = "";
                 bool inAchTimes = false;
 
-                // O VERDADEIRO PARSER DA VALVE (À prova de falhas)
                 while (i < fileBytes.Length - 5)
                 {
-                    if (fileBytes[i] == 0x08) // 0x08 marca o fim de um grupo no arquivo VDF
+                    if (fileBytes[i] == 0x08) 
                     {
                         inAchTimes = false;
                         i++;
@@ -93,7 +90,7 @@ namespace LocalAchievements.Services
 
                         string key = Encoding.ASCII.GetString(fileBytes, nameStart, nameEnd - nameStart).Trim();
                         
-                        if (type == 0x00) // Dicionário
+                        if (type == 0x00) 
                         {
                             if (key.Equals("AchievementTimes", StringComparison.OrdinalIgnoreCase)) {
                                 inAchTimes = true;
@@ -102,14 +99,14 @@ namespace LocalAchievements.Services
                             }
                             i = nameEnd + 1;
                         }
-                        else if (type == 0x01) // String (Ignoramos o valor)
+                        else if (type == 0x01) 
                         {
                             int valStart = nameEnd + 1;
                             int valEnd = valStart;
                             while (valEnd < fileBytes.Length && fileBytes[valEnd] != 0x00) valEnd++;
                             i = valEnd + 1;
                         }
-                        else if (type == 0x02) // Int32 (Nossas queridas Conquistas!)
+                        else if (type == 0x02) 
                         {
                             int valStart = nameEnd + 1;
                             if (valStart + 4 <= fileBytes.Length)
@@ -119,12 +116,10 @@ namespace LocalAchievements.Services
                                 if (value > 0 && !IsReserved(key))
                                 {
                                     string mapKey = key;
-                                    // Se estiver dentro de um grupo, junta o nome do grupo (Ex: 101_0)
                                     if (inAchTimes && !string.IsNullOrEmpty(currentStatId)) {
                                         mapKey = currentStatId + "_" + key;
                                     }
 
-                                    // A Correção do "Cínico": Se a data for zerada pelo Steam Tools, usamos a data do arquivo.
                                     DateTime unlockDate = value > 946684800 ? DateTimeOffset.FromUnixTimeSeconds(value).LocalDateTime : fallbackDate;
                                     string finalName = key;
 
@@ -137,7 +132,7 @@ namespace LocalAchievements.Services
                                     if (!results.ContainsKey(finalName)) {
                                         results.Add(finalName, unlockDate);
                                     } else if (value > 946684800) {
-                                        results[finalName] = unlockDate; // Atualiza se achar uma data real melhor
+                                        results[finalName] = unlockDate; 
                                     }
                                 }
                                 i = valStart + 4;
