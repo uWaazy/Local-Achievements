@@ -15,6 +15,8 @@ namespace LocalAchievements
     {
         private static readonly ILogger logger = LogManager.GetLogger();
         private SuccessStorySyncService _syncService;
+        private SteamPlaytimeService _playtimeService;
+        private readonly LocalAchievementsSettingsViewModel _settingsVM;
 
         private readonly Guid SteamPluginId = Guid.Parse("cb91dfc9-b977-43bf-8e70-55f46e410fab");
 
@@ -22,92 +24,138 @@ namespace LocalAchievements
 
         public LocalAchievements(IPlayniteAPI api) : base(api)
         {
-            Properties = new GenericPluginProperties { HasSettings = false };
+            Properties = new GenericPluginProperties { HasSettings = true };
+            _settingsVM = new LocalAchievementsSettingsViewModel(this);
             _syncService = new SuccessStorySyncService(api);
+            _playtimeService = new SteamPlaytimeService(api);
         }
 
         public override IEnumerable<GameMenuItem> GetGameMenuItems(GetGameMenuItemsArgs args)
         {
+            string section = "Local Achievements";
+            string icon = Path.Combine(Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location), "icon.png");
+
             yield return new GameMenuItem
             {
-                Description = ResourceProvider.GetString("LOCLocalAchievementsSyncMenu"),
-                Icon = Path.Combine(Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location), "icon.png"),
-                Action = (context) =>
-                {
-                    var gameToRefresh = context.Games.FirstOrDefault();
-                    int totalUpdated = 0; 
-
-                    PlayniteApi.Dialogs.ActivateGlobalProgress((progress) =>
-                    {
-                        progress.ProgressMaxValue = context.Games.Count;
-
-                        foreach (var game in context.Games)
-                        {
-                            progress.Text = string.Format(ResourceProvider.GetString("LOCLocalAchievementsReadingData"), game.Name);
-                            
-                            VerificarEAdicionarTagSteamTools(game);
-
-                            if (_syncService.IsSteamToolsGame(game))
-                            {
-                                int count = _syncService.Sync(game);
-                                if (count > 0)
-                                {
-                                    game.Modified = DateTime.Now;
-                                    PlayniteApi.Database.Games.Update(game);
-                                    totalUpdated += count;
-                                }
-                            }
-                            progress.CurrentProgressValue++;
-                        }
-                    }, new GlobalProgressOptions(ResourceProvider.GetString("LOCLocalAchievementsSyncProgress")));
-                    
-                    if (totalUpdated > 0)
-                    {
-                        string promptMessage = string.Format(ResourceProvider.GetString("LOCLocalAchievementsRestartPrompt"), totalUpdated);
-                        string promptTitle = ResourceProvider.GetString("LOCLocalAchievementsSyncComplete");
-
-                        var result = PlayniteApi.Dialogs.ShowMessage(
-                            promptMessage,
-                            promptTitle,
-                            System.Windows.MessageBoxButton.YesNo
-                        );
-
-                        if (result == System.Windows.MessageBoxResult.Yes)
-                        {
-                            string playniteExe = System.Diagnostics.Process.GetCurrentProcess().MainModule.FileName;
-                            
-                            System.Diagnostics.ProcessStartInfo restartInfo = new System.Diagnostics.ProcessStartInfo
-                            {
-                                FileName = "cmd.exe",
-                                Arguments = $"/c timeout /t 3 /nobreak >nul & start \"\" \"{playniteExe}\"",
-                                WindowStyle = System.Diagnostics.ProcessWindowStyle.Hidden,
-                                CreateNoWindow = true
-                            };
-                            System.Diagnostics.Process.Start(restartInfo);
-                            
-                            PlayniteApi.MainView.UIDispatcher.Invoke(() => 
-                            {
-                                System.Windows.Application.Current.Shutdown();
-                            });
-                        }
-                        else
-                        {
-                            Task.Run(async () =>
-                            {
-                                await Task.Delay(2000); 
-                                RefreshPlayniteUI(gameToRefresh);
-                            });
-                        }
-                    }
-                    else
-                    {
-                        PlayniteApi.Dialogs.ShowMessage(
-                            ResourceProvider.GetString("LOCLocalAchievementsUpToDate"), 
-                            ResourceProvider.GetString("LOCLocalAchievementsSteamToolsTitle")
-                        );
-                    }
-                }
+                MenuSection = section,
+                Description = ResourceProvider.GetString("LOCLocalAchievementsSyncAchievementsMenu"),
+                Icon = icon,
+                Action = (context) => SyncAchievementsFromMenu(context)
             };
+
+            yield return new GameMenuItem
+            {
+                MenuSection = section,
+                Description = ResourceProvider.GetString("LOCLocalAchievementsSyncPlaytimeMenu"),
+                Icon = icon,
+                Action = (context) => SyncPlaytimeFromMenu(context)
+            };
+        }
+
+        private void SyncPlaytimeFromMenu(GameMenuItemActionArgs context)
+        {
+            int synced = 0, skipped = 0, none = 0;
+
+            PlayniteApi.Dialogs.ActivateGlobalProgress((progress) =>
+            {
+                progress.ProgressMaxValue = context.Games.Count;
+                foreach (var game in context.Games)
+                {
+                    progress.Text = string.Format(ResourceProvider.GetString("LOCLocalAchievementsReadingData"), game.Name);
+
+                    if (_syncService.IsSteamToolsGame(game))
+                    {
+                        switch (_playtimeService.Sync(game))
+                        {
+                            case PlaytimeSyncResult.Synced: synced++; break;
+                            case PlaytimeSyncResult.SkippedNotHigher: skipped++; break;
+                            default: none++; break;
+                        }
+                    }
+                    else none++;
+                    progress.CurrentProgressValue++;
+                }
+            }, new GlobalProgressOptions(ResourceProvider.GetString("LOCLocalAchievementsPlaytimeProgress")));
+
+            PlayniteApi.Dialogs.ShowMessage(
+                string.Format(ResourceProvider.GetString("LOCLocalAchievementsPlaytimeResult"), synced, skipped, none),
+                ResourceProvider.GetString("LOCLocalAchievementsPlaytimeTitle"));
+        }
+
+        private void SyncAchievementsFromMenu(GameMenuItemActionArgs context)
+        {
+            var gameToRefresh = context.Games.FirstOrDefault();
+            int totalUpdated = 0;
+
+            PlayniteApi.Dialogs.ActivateGlobalProgress((progress) =>
+            {
+                progress.ProgressMaxValue = context.Games.Count;
+
+                foreach (var game in context.Games)
+                {
+                    progress.Text = string.Format(ResourceProvider.GetString("LOCLocalAchievementsReadingData"), game.Name);
+
+                    VerificarEAdicionarTagSteamTools(game);
+
+                    if (_syncService.IsSteamToolsGame(game))
+                    {
+                        int count = _syncService.Sync(game);
+                        if (count > 0)
+                        {
+                            game.Modified = DateTime.Now;
+                            PlayniteApi.Database.Games.Update(game);
+                            totalUpdated += count;
+                        }
+                    }
+                    progress.CurrentProgressValue++;
+                }
+            }, new GlobalProgressOptions(ResourceProvider.GetString("LOCLocalAchievementsSyncProgress")));
+
+            if (totalUpdated > 0)
+            {
+                string promptMessage = string.Format(ResourceProvider.GetString("LOCLocalAchievementsRestartPrompt"), totalUpdated);
+                string promptTitle = ResourceProvider.GetString("LOCLocalAchievementsSyncComplete");
+
+                var result = PlayniteApi.Dialogs.ShowMessage(
+                    promptMessage,
+                    promptTitle,
+                    System.Windows.MessageBoxButton.YesNo
+                );
+
+                if (result == System.Windows.MessageBoxResult.Yes)
+                {
+                    string playniteExe = System.Diagnostics.Process.GetCurrentProcess().MainModule.FileName;
+
+                    System.Diagnostics.ProcessStartInfo restartInfo = new System.Diagnostics.ProcessStartInfo
+                    {
+                        FileName = "cmd.exe",
+                        Arguments = $"/c timeout /t 3 /nobreak >nul & start \"\" \"{playniteExe}\"",
+                        WindowStyle = System.Diagnostics.ProcessWindowStyle.Hidden,
+                        CreateNoWindow = true
+                    };
+                    System.Diagnostics.Process.Start(restartInfo);
+
+                    PlayniteApi.MainView.UIDispatcher.Invoke(() =>
+                    {
+                        System.Windows.Application.Current.Shutdown();
+                    });
+                }
+                else
+                {
+                    Task.Run(async () =>
+                    {
+                        await Task.Delay(2000);
+                        RefreshPlayniteUI(gameToRefresh);
+                    });
+                }
+            }
+            else
+            {
+                PlayniteApi.Dialogs.ShowMessage(
+                    ResourceProvider.GetString("LOCLocalAchievementsUpToDate"),
+                    ResourceProvider.GetString("LOCLocalAchievementsSteamToolsTitle")
+                );
+            }
         }
 
         public override void OnLibraryUpdated(OnLibraryUpdatedEventArgs args)
@@ -119,6 +167,9 @@ namespace LocalAchievements
                 foreach (var game in steamGames)
                 {
                     VerificarEAdicionarTagSteamTools(game);
+
+                    if (_settingsVM.Settings.AutoSyncPlaytime && _syncService.IsSteamToolsGame(game))
+                        _playtimeService.Sync(game);
                 }
             }
             catch (Exception ex)
@@ -157,7 +208,7 @@ namespace LocalAchievements
             if (args.Game.PluginId == SteamPluginId && _syncService.IsSteamToolsGame(args.Game))
             {
                 AdvancedLogger.Log($"[DISFARCE ATIVADO] Escondendo {args.Game.Name} do SuccessStory...");
-                args.Game.PluginId = Guid.Empty; 
+                args.Game.PluginId = Guid.Empty;
                 PlayniteApi.Database.Games.Update(args.Game);
             }
         }
@@ -168,15 +219,15 @@ namespace LocalAchievements
             {
                 Task.Run(async () =>
                 {
-                    await Task.Delay(2000); 
+                    await Task.Delay(3000);
 
                     AdvancedLogger.Log($"[DISFARCE REMOVIDO] Injetando dados reais em {args.Game.Name}...");
-                    
+
                     args.Game.PluginId = SteamPluginId;
                     PlayniteApi.Database.Games.Update(args.Game);
 
                     int count = _syncService.Sync(args.Game);
-                    
+
                     if (count > 0)
                     {
                         args.Game.Modified = DateTime.Now;
@@ -198,11 +249,15 @@ namespace LocalAchievements
 
         public override void OnApplicationStarted(OnApplicationStartedEventArgs args)
         {
+            PlayniteApi.Database.Games.ItemCollectionChanged += Games_ItemCollectionChanged;
+
+            if (!_settingsVM.Settings.EnableAutoSyncOnStartup) return;
+
             Task.Run(async () =>
             {
                 try
                 {
-                    await Task.Delay(8000); 
+                    await Task.Delay(8000);
 
                     var steamGames = PlayniteApi.Database.Games
                         .Where(g => g.PluginId == SteamPluginId)
@@ -220,15 +275,53 @@ namespace LocalAchievements
                                 game.Modified = DateTime.Now;
                                 PlayniteApi.Database.Games.Update(game);
                             }
+
+                            if (_settingsVM.Settings.AutoSyncPlaytime)
+                                _playtimeService.Sync(game);
                         }
                     }
-                    
+
                     var selected = PlayniteApi.MainView.SelectedGames?.FirstOrDefault();
                     if (selected != null) RefreshPlayniteUI(selected);
                 }
                 catch (Exception ex)
                 {
                     logger.Error(ex, "Erro na sincronização automática.");
+                }
+            });
+        }
+
+        private void Games_ItemCollectionChanged(object sender, ItemCollectionChangedEventArgs<Game> e)
+        {
+            if (e.AddedItems == null || e.AddedItems.Count == 0) return;
+
+            var added = e.AddedItems.Where(g => g.PluginId == SteamPluginId).ToList();
+            if (added.Count == 0) return;
+
+            Task.Run(async () =>
+            {
+                await Task.Delay(3000);
+
+                foreach (var game in added)
+                {
+                    try
+                    {
+                        VerificarEAdicionarTagSteamTools(game);
+
+                        if (_settingsVM.Settings.AutoSyncPlaytime
+                            && _syncService.IsSteamToolsGame(game)
+                            && _playtimeService.Sync(game) == PlaytimeSyncResult.Synced)
+                        {
+                            PlayniteApi.Notifications.Add(new NotificationMessage(
+                                Guid.NewGuid().ToString(),
+                                string.Format(ResourceProvider.GetString("LOCLocalAchievementsPlaytimeNotification"), game.Name, Math.Round(game.Playtime / 3600.0, 1)),
+                                NotificationType.Info));
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        logger.Error(ex, $"Erro ao processar jogo novo: {game?.Name}");
+                    }
                 }
             });
         }
@@ -257,7 +350,7 @@ namespace LocalAchievements
             });
         }
 
-        public override ISettings GetSettings(bool firstRunSettings) { return null; }
-        public override System.Windows.Controls.UserControl GetSettingsView(bool firstRunSettings) { return null; }
+        public override ISettings GetSettings(bool firstRunSettings) { return _settingsVM; }
+        public override System.Windows.Controls.UserControl GetSettingsView(bool firstRunSettings) { return new LocalAchievementsSettingsView { DataContext = _settingsVM }; }
     }
 }

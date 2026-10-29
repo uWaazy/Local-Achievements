@@ -1,0 +1,27 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=mscorlib">
+
+    <sys:String x:Key="LOCLocalAchievementsSyncMenu">Sync Local Achievements</sys:String>
+    <sys:String x:Key="LOCLocalAchievementsReadingData">Reading local data: {0}...</sys:String>
+    <sys:String x:Key="LOCLocalAchievementsSyncProgress">Synchronizing local achievements...</sys:String>
+    <sys:String x:Key="LOCLocalAchievementsRestartPrompt">{0} local achievements have been synchronized!&#x0a;&#x0a;Since the visual interface requires a reload, do you want to restart Playnite now to apply the changes?</sys:String>
+    <sys:String x:Key="LOCLocalAchievementsSyncComplete">Steam Tools - Sync Complete</sys:String>
+    <sys:String x:Key="LOCLocalAchievementsUpToDate">Everything is up to date! No new local achievements detected.</sys:String>
+    <sys:String x:Key="LOCLocalAchievementsSteamToolsTitle">Steam Tools</sys:String>
+    <sys:String x:Key="LOCLocalAchievementsTrackerNotification">Steam Tools Tracker: {0} new achievements recovered for {1}!</sys:String>
+
+    <sys:String x:Key="LOCLocalAchievementsSyncAchievementsMenu">Sync Achievements</sys:String>
+    <sys:String x:Key="LOCLocalAchievementsSyncPlaytimeMenu">Sync Playtime</sys:String>
+    <sys:String x:Key="LOCLocalAchievementsPlaytimeProgress">Syncing playtime...</sys:String>
+    <sys:String x:Key="LOCLocalAchievementsPlaytimeResult">Playtime updated from Steam: {0}&#x0a;Skipped (Playnite already has equal or more time): {1}&#x0a;No Steam playtime found: {2}</sys:String>
+    <sys:String x:Key="LOCLocalAchievementsPlaytimeTitle">Local Achievements - Playtime</sys:String>
+
+    <sys:String x:Key="LOCLocalAchievementsSettingsAutoStartup">Sync achievements automatically when Playnite starts</sys:String>
+    <sys:String x:Key="LOCLocalAchievementsSettingsAutoPlaytime">Update playtime from Steam automatically (new games and startup)</sys:String>
+    <sys:String x:Key="LOCLocalAchievementsSettingsAutoPlaytimeHint">For Steam Tools / Lua Tools games: if Steam has more playtime than Playnite, Playnite is updated to the Steam value. If Playnite has equal or more, nothing changes.</sys:String>
+    <sys:String x:Key="LOCLocalAchievementsPlaytimeNotification">{0}: {1}h of playtime imported from Steam.</sys:String>
+
+    <sys:String x:Key="LOCLocalAchievementsSettingsSubtitle">Extension for SuccessStory</sys:String>
+
+</ResourceDictionary>

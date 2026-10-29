@@ -1,0 +1,27 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=mscorlib">
+
+    <sys:String x:Key="LOCLocalAchievementsSyncMenu">Sincronizar Logros Locales</sys:String>
+    <sys:String x:Key="LOCLocalAchievementsReadingData">Leyendo datos locales: {0}...</sys:String>
+    <sys:String x:Key="LOCLocalAchievementsSyncProgress">Sincronizando logros locales...</sys:String>
+    <sys:String x:Key="LOCLocalAchievementsRestartPrompt">¡Se han sincronizado {0} logros locales!&#x0a;&#x0a;Dado que la interfaz visual requiere recargarse, ¿deseas reiniciar Playnite ahora para aplicar los cambios visuales?</sys:String>
+    <sys:String x:Key="LOCLocalAchievementsSyncComplete">Steam Tools - Sincronización Completada</sys:String>
+    <sys:String x:Key="LOCLocalAchievementsUpToDate">¡Todo actualizado! No se han detectado nuevos logros locales.</sys:String>
+    <sys:String x:Key="LOCLocalAchievementsSteamToolsTitle">Steam Tools</sys:String>
+    <sys:String x:Key="LOCLocalAchievementsTrackerNotification">Steam Tools Tracker: ¡{0} nuevos logros recuperados para {1}!</sys:String>
+
+    <sys:String x:Key="LOCLocalAchievementsSyncAchievementsMenu">Sincronizar Logros</sys:String>
+    <sys:String x:Key="LOCLocalAchievementsSyncPlaytimeMenu">Sincronizar Horas</sys:String>
+    <sys:String x:Key="LOCLocalAchievementsPlaytimeProgress">Sincronizando horas jugadas...</sys:String>
+    <sys:String x:Key="LOCLocalAchievementsPlaytimeResult">Horas actualizadas desde Steam: {0}&#x0a;Omitidos (Playnite ya tiene igual o más tiempo): {1}&#x0a;Sin horas en Steam: {2}</sys:String>
+    <sys:String x:Key="LOCLocalAchievementsPlaytimeTitle">Local Achievements - Horas</sys:String>
+
+    <sys:String x:Key="LOCLocalAchievementsSettingsAutoStartup">Sincronizar logros automáticamente al iniciar Playnite</sys:String>
+    <sys:String x:Key="LOCLocalAchievementsSettingsAutoPlaytime">Actualizar horas desde Steam automáticamente (juegos nuevos y al iniciar)</sys:String>
+    <sys:String x:Key="LOCLocalAchievementsSettingsAutoPlaytimeHint">Para juegos de Steam Tools / Lua Tools: si Steam tiene más horas que Playnite, Playnite pasa a usar el valor de Steam. Si Playnite tiene igual o más, no cambia nada.</sys:String>
+    <sys:String x:Key="LOCLocalAchievementsPlaytimeNotification">{0}: {1}h de tiempo de juego importadas de Steam.</sys:String>
+
+    <sys:String x:Key="LOCLocalAchievementsSettingsSubtitle">Extensión para SuccessStory</sys:String>
+
+</ResourceDictionary>

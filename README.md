@@ -7,6 +7,7 @@ A generic Playnite plugin designed to synchronize local Steam achievements and i
 * **Offline Synchronization:** Reads local Steam binary files and schemas to recover accurate achievement unlock dates.
 * **Automatic Tagging:** Scans your library and automatically applies a "Steam Tools" tag to supported games.
 * **SuccessStory Integration:** Temporarily hides supported games from SuccessStory during gameplay to prevent data overwriting, silently injecting the correct data once the game is closed.
+* **Playtime Sync:** Imports the hours played from Steam (`localconfig.vdf`) into Playnite for Steam Tools / Lua Tools games. It only imports when the game has 0 hours in Playnite, so hours you edited or played in Playnite are never overwritten.
 * **Localization:** Native support for English (en-US), Portuguese (pt-BR), and Spanish (es-ES).
 
 ## Installation
@@ -17,5 +18,5 @@ A generic Playnite plugin designed to synchronize local Steam achievements and i
 
 ## Usage
 
-* Right-click any supported game in your library and select "Sync Local Achievements" from the context menu.
+* Right-click any supported game and open the **Local Achievements** submenu: **Sync Achievements** or **Sync Playtime**.
 * The plugin will automatically scan for new games and sync data in the background upon application startup or library updates.

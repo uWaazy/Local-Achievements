@@ -9,10 +9,12 @@ namespace LocalAchievements
         private string steamApiKey = string.Empty;
         private string steamId64 = string.Empty;
         private bool enableAutoSyncOnStartup = true;
+        private bool autoSyncPlaytime = true;
 
         public string SteamApiKey { get => steamApiKey; set => SetValue(ref steamApiKey, value); }
         public string SteamId64 { get => steamId64; set => SetValue(ref steamId64, value); }
         public bool EnableAutoSyncOnStartup { get => enableAutoSyncOnStartup; set => SetValue(ref enableAutoSyncOnStartup, value); }
+        public bool AutoSyncPlaytime { get => autoSyncPlaytime; set => SetValue(ref autoSyncPlaytime, value); }
     }
 
     public class LocalAchievementsSettingsViewModel : ObservableObject, ISettings

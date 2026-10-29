@@ -30,7 +30,8 @@
     <None Update="icon.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Update="Localization\**\*.xaml">
+    <Page Remove="Localization\**\*.xaml" />
+    <None Include="Localization\**\*.xaml">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>
