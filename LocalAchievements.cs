@@ -25,6 +25,7 @@ namespace LocalAchievements
         public LocalAchievements(IPlayniteAPI api) : base(api)
         {
             Properties = new GenericPluginProperties { HasSettings = true };
+            AdvancedLogger.Initialize(GetPluginUserDataPath());
             _settingsVM = new LocalAchievementsSettingsViewModel(this);
             _syncService = new SuccessStorySyncService(api);
             _playtimeService = new SteamPlaytimeService(api);
@@ -50,6 +51,60 @@ namespace LocalAchievements
                 Icon = icon,
                 Action = (context) => SyncPlaytimeFromMenu(context)
             };
+
+            yield return new GameMenuItem
+            {
+                MenuSection = section,
+                Description = ResourceProvider.GetString("LOCLocalAchievementsDiagnosticMenu"),
+                Icon = icon,
+                Action = (context) => CopyDiagnosticFromMenu(context)
+            };
+
+            yield return new GameMenuItem
+            {
+                MenuSection = section,
+                Description = ResourceProvider.GetString("LOCLocalAchievementsOpenLogMenu"),
+                Icon = icon,
+                Action = (context) => OpenLogFolder()
+            };
+        }
+
+        private void CopyDiagnosticFromMenu(GameMenuItemActionArgs context)
+        {
+            var game = context.Games.FirstOrDefault();
+            if (game == null) return;
+
+            string report = null;
+            PlayniteApi.Dialogs.ActivateGlobalProgress((progress) =>
+            {
+                report = _syncService.Diagnose(game);
+            }, new GlobalProgressOptions(ResourceProvider.GetString("LOCLocalAchievementsDiagnosticProgress")));
+
+            AdvancedLogger.Log(report);
+
+            try { System.Windows.Clipboard.SetText(report ?? ""); } catch { }
+
+            PlayniteApi.Dialogs.ShowMessage(
+                string.Format(ResourceProvider.GetString("LOCLocalAchievementsDiagnosticDone"), report),
+                ResourceProvider.GetString("LOCLocalAchievementsSteamToolsTitle"));
+        }
+
+        private void OpenLogFolder()
+        {
+            try
+            {
+                string path = AdvancedLogger.LogFilePath;
+                if (string.IsNullOrEmpty(path)) return;
+
+                if (File.Exists(path))
+                    System.Diagnostics.Process.Start("explorer.exe", $"/select,\"{path}\"");
+                else
+                    System.Diagnostics.Process.Start("explorer.exe", $"\"{Path.GetDirectoryName(path)}\"");
+            }
+            catch (Exception ex)
+            {
+                logger.Error(ex, "Failed to open the log folder.");
+            }
         }
 
         private void SyncPlaytimeFromMenu(GameMenuItemActionArgs context)
@@ -86,6 +141,7 @@ namespace LocalAchievements
         {
             var gameToRefresh = context.Games.FirstOrDefault();
             int totalUpdated = 0;
+            var failures = new List<string>();
 
             PlayniteApi.Dialogs.ActivateGlobalProgress((progress) =>
             {
@@ -99,13 +155,23 @@ namespace LocalAchievements
 
                     if (_syncService.IsSteamToolsGame(game))
                     {
-                        int count = _syncService.Sync(game);
+                        int count = _syncService.Sync(game, out string reason);
                         if (count > 0)
                         {
                             game.Modified = DateTime.Now;
                             PlayniteApi.Database.Games.Update(game);
                             totalUpdated += count;
                         }
+                        else if (!string.IsNullOrEmpty(reason))
+                        {
+                            failures.Add($"{game.Name}: {reason}");
+                        }
+                    }
+                    else
+                    {
+                        string notSupported = $"Not a Steam Tools game (no stplug-in\\{game.GameId}.lua found, or not from the Steam library).";
+                        AdvancedLogger.Log($"[SKIP] {game.Name}: {notSupported}");
+                        failures.Add($"{game.Name}: {notSupported}");
                     }
                     progress.CurrentProgressValue++;
                 }
@@ -148,6 +214,14 @@ namespace LocalAchievements
                         RefreshPlayniteUI(gameToRefresh);
                     });
                 }
+            }
+            else if (failures.Count > 0)
+            {
+                string details = string.Join("\n\n", failures.Take(5).Select(f => f.Length > 400 ? f.Substring(0, 400) + "..." : f));
+                PlayniteApi.Dialogs.ShowMessage(
+                    string.Format(ResourceProvider.GetString("LOCLocalAchievementsSyncNothing"), details),
+                    ResourceProvider.GetString("LOCLocalAchievementsSteamToolsTitle")
+                );
             }
             else
             {

@@ -1,0 +1,24 @@
+name: Feature request
+description: Suggest an improvement or a new feature
+title: "[Feature] "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem would this solve?
+      description: Describe the situation where you need it.
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: Suggested solution
+      description: How do you imagine it working?
+    validations:
+      required: true
+  - type: textarea
+    id: samples
+    attributes:
+      label: Samples and links
+      description: For new achievement sources (cracks, emulators), attach a sample achievements file and list the files in the game folder.

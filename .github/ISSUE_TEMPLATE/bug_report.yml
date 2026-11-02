@@ -1,0 +1,76 @@
+name: Bug report
+description: Achievements or playtime are not syncing, or something else is broken
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting! The more details you give, the faster it can be fixed.
+        Please search the existing issues first.
+  - type: input
+    id: game
+    attributes:
+      label: Game name and Steam AppID
+      description: "Example: Marvel's Spider-Man: Miles Morales (1817190)"
+    validations:
+      required: true
+  - type: dropdown
+    id: source
+    attributes:
+      label: How was the game added?
+      options:
+        - Steam Tools
+        - Lua Tools
+        - Another manifest/lua tool
+        - Cracked game (ALI213, CODEX, etc.)
+        - Official Steam purchase
+        - Other
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: What is not working?
+      options:
+        - Achievements
+        - Playtime
+        - Context menu
+        - Settings
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: Describe the problem
+      description: What did you expect and what happened instead?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Right-click the game
+        2. Local Achievements > Sync Achievements
+        3. See the message
+  - type: textarea
+    id: diagnostic
+    attributes:
+      label: Diagnostic report
+      description: Right-click the game > Local Achievements > Copy Diagnostic Report, then paste it here.
+      render: text
+    validations:
+      required: true
+  - type: input
+    id: versions
+    attributes:
+      label: Versions
+      description: Plugin, Playnite and SuccessStory versions
+      placeholder: "Local Achievements 1.3.0 / Playnite 10.x / SuccessStory 3.x"
+  - type: textarea
+    id: extra
+    attributes:
+      label: Logs and screenshots
+      description: Right-click a game > Local Achievements > Open Log Folder, then attach LocalAchievements.log. Screenshots are welcome.
