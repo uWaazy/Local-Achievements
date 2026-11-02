@@ -6,6 +6,7 @@
     <RootNamespace>LocalAchievements</RootNamespace>
     <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
     <UseWPF>true</UseWPF>
+    <InstallToPlaynite Condition="'$(InstallToPlaynite)' == ''">false</InstallToPlaynite>
   </PropertyGroup>
 
   <ItemGroup>
@@ -19,7 +20,7 @@
     </None>
   </ItemGroup>
 
-  <Target Name="PostBuild" AfterTargets="PostBuildEvent">
+  <Target Name="PostBuild" AfterTargets="PostBuildEvent" Condition="'$(InstallToPlaynite)' == 'true'">
     <Exec Command="robocopy &quot;$(TargetDir.TrimEnd('\'))&quot; &quot;$(AppData)\Playnite\Extensions\LocalAchievements&quot; /E /IS /R:2 /W:1 &amp; if %errorlevel% leq 8 exit 0" />
   </Target>
 

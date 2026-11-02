@@ -1,5 +1,6 @@
 using Playnite.SDK;
 using System;
+using System.Diagnostics;
 using System.IO;
 
 namespace LocalAchievements.Services
@@ -45,6 +46,23 @@ namespace LocalAchievements.Services
                     File.AppendAllText(logPath, $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] {message}{Environment.NewLine}");
                 }
                 catch { }
+            }
+        }
+
+        public static void OpenLogLocation()
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(logPath)) return;
+
+                if (File.Exists(logPath))
+                    Process.Start("explorer.exe", $"/select,\"{logPath}\"");
+                else
+                    Process.Start("explorer.exe", $"\"{Path.GetDirectoryName(logPath)}\"");
+            }
+            catch (Exception ex)
+            {
+                playniteLogger.Error(ex, "Failed to open the log folder.");
             }
         }
 

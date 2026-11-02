@@ -25,7 +25,7 @@
     <sys:String x:Key="LOCLocalAchievementsSettingsSubtitle">Extension for SuccessStory</sys:String>
 
     <sys:String x:Key="LOCLocalAchievementsDiagnosticMenu">Copy Diagnostic Report</sys:String>
-    <sys:String x:Key="LOCLocalAchievementsOpenLogMenu">Open Log Folder</sys:String>
+    <sys:String x:Key="LOCLocalAchievementsSettingsOpenLog">Open Log Folder</sys:String>
     <sys:String x:Key="LOCLocalAchievementsDiagnosticProgress">Collecting diagnostic data...</sys:String>
     <sys:String x:Key="LOCLocalAchievementsDiagnosticDone">Diagnostic report copied to the clipboard. Paste it into your GitHub issue.&#x0a;&#x0a;{0}</sys:String>
     <sys:String x:Key="LOCLocalAchievementsSyncNothing">No achievements were updated.&#x0a;&#x0a;{0}&#x0a;&#x0a;Use Copy Diagnostic Report and attach it to your GitHub issue.</sys:String>

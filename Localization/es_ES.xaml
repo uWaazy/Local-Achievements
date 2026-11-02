@@ -25,7 +25,7 @@
     <sys:String x:Key="LOCLocalAchievementsSettingsSubtitle">Extensión para SuccessStory</sys:String>
 
     <sys:String x:Key="LOCLocalAchievementsDiagnosticMenu">Copiar Informe de Diagnóstico</sys:String>
-    <sys:String x:Key="LOCLocalAchievementsOpenLogMenu">Abrir Carpeta de Registros</sys:String>
+    <sys:String x:Key="LOCLocalAchievementsSettingsOpenLog">Abrir Carpeta de Registros</sys:String>
     <sys:String x:Key="LOCLocalAchievementsDiagnosticProgress">Recopilando datos de diagnóstico...</sys:String>
     <sys:String x:Key="LOCLocalAchievementsDiagnosticDone">Informe de diagnóstico copiado al portapapeles. Pégalo en tu issue de GitHub.&#x0a;&#x0a;{0}</sys:String>
     <sys:String x:Key="LOCLocalAchievementsSyncNothing">No se actualizó ningún logro.&#x0a;&#x0a;{0}&#x0a;&#x0a;Usa Copiar Informe de Diagnóstico y adjúntalo en tu issue de GitHub.</sys:String>

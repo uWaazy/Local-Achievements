@@ -49,10 +49,15 @@ namespace LocalAchievements.Services
             return Registry.GetValue(@"HKEY_CURRENT_USER\Software\Valve\Steam", "SteamPath", null)?.ToString().Replace('/', Path.DirectorySeparatorChar);
         }
 
-        private static string Fail(Game game, string text)
+        private static string Fail(Game game, string text, bool expected = false)
         {
-            AdvancedLogger.Log($"[FAIL] {game.Name} (AppID {game.GameId}): {text}");
+            AdvancedLogger.Log($"[{(expected ? "INFO" : "FAIL")}] {game.Name} (AppID {game.GameId}): {text}");
             return text;
+        }
+
+        private static string NameOf(SuccessStoryAchievement a)
+        {
+            return !string.IsNullOrWhiteSpace(a.ApiName) ? a.ApiName.Trim() : (a.Name?.Trim() ?? "");
         }
 
         private static string Sample(IEnumerable<string> items, int count)
@@ -71,8 +76,6 @@ namespace LocalAchievements.Services
             reason = null;
             try
             {
-                AdvancedLogger.Log($"=== Iniciando Injeção Cirúrgica: {game.Name} ===");
-
                 string steamPath = GetSteamPath();
                 if (string.IsNullOrEmpty(steamPath)) { reason = Fail(game, "Steam installation path not found in the Windows registry."); return 0; }
 
@@ -82,7 +85,7 @@ namespace LocalAchievements.Services
                 var files = Directory.GetFiles(binDir, $"UserGameStats_*_{game.GameId}.bin");
                 if (files.Length == 0)
                 {
-                    reason = Fail(game, $"No UserGameStats_*_{game.GameId}.bin file in the Steam stats folder. Steam has not created the stats file for this AppID yet; start the game once through Steam.");
+                    reason = Fail(game, $"No UserGameStats_*_{game.GameId}.bin file in the Steam stats folder. Steam has not created the stats file for this AppID yet; start the game once through Steam.", true);
                     return 0;
                 }
 
@@ -92,10 +95,9 @@ namespace LocalAchievements.Services
                 var schemaMap = VdfReader.LoadSchemaTranslation(schemaPath);
                 var localAch = VdfReader.ExtractAchievements(binPath, schemaMap);
 
-                if (localAch.Count > 0) {
-                    AdvancedLogger.Log($"Steam encontrou {localAch.Count} conquistas traduzidas.");
-                } else {
-                    reason = Fail(game, $"No unlocked achievements could be read from {Path.GetFileName(binPath)} (schema entries: {schemaMap.Count}). Either nothing is unlocked yet or the file format was not recognized.");
+                if (localAch.Count == 0)
+                {
+                    reason = Fail(game, $"No unlocked achievements found in {Path.GetFileName(binPath)} (schema entries: {schemaMap.Count}). Normal if nothing is unlocked yet; otherwise the file format may not be recognized.", true);
                     return 0;
                 }
 
@@ -116,19 +118,16 @@ namespace LocalAchievements.Services
                 var db = JsonConvert.DeserializeObject<SuccessStoryDatabase>(File.ReadAllText(jsonPath));
                 if (db?.Items == null || db.Items.Count == 0)
                 {
-                    reason = Fail(game, "The SuccessStory data file has no achievement list.");
+                    reason = Fail(game, $"SuccessStory has an empty achievement list for this game (it could not download the achievements), while Steam has {localAch.Count} unlocked locally. Open the game in SuccessStory and refresh its achievements.");
                     return 0;
                 }
 
                 int updated = 0;
-                int locked = 0;
 
                 foreach (var ach in db.Items)
                 {
                     if (ach.DateUnlocked.HasValue && ach.DateUnlocked.Value.Year > 2000)
                         continue;
-
-                    locked++;
 
                     string keyToSearch = !string.IsNullOrWhiteSpace(ach.ApiName) ? ach.ApiName.Trim() : (ach.Name?.Trim() ?? "");
                     DateTime unlockDate = DateTime.MinValue;
@@ -157,12 +156,13 @@ namespace LocalAchievements.Services
                     File.WriteAllText(jsonPath, JsonConvert.SerializeObject(db, Formatting.Indented));
                     AdvancedLogger.Log($"=== SUCESSO: {updated} conquistas injetadas à força! ===");
                 }
-                else if (locked > 0)
+                else
                 {
-                    var lockedNames = db.Items
-                        .Where(a => !(a.DateUnlocked.HasValue && a.DateUnlocked.Value.Year > 2000))
-                        .Select(a => !string.IsNullOrWhiteSpace(a.ApiName) ? a.ApiName.Trim() : (a.Name?.Trim() ?? ""));
-                    reason = Fail(game, $"{localAch.Count} unlocked achievements were read from Steam, but none matched the {locked} locked SuccessStory achievements. Steam names: {Sample(localAch.Keys, 3)}. SuccessStory names: {Sample(lockedNames, 3)}.");
+                    var unmatched = localAch.Keys.Where(k => !db.Items.Any(a => IsPerfectMatch(k, NameOf(a)))).ToList();
+                    if (unmatched.Count > 0)
+                    {
+                        reason = Fail(game, $"{unmatched.Count} of {localAch.Count} unlocked Steam achievements have no equivalent in SuccessStory. Steam names: {Sample(unmatched, 3)}. SuccessStory names: {Sample(db.Items.Select(a => NameOf(a)), 3)}.");
+                    }
                 }
 
                 return updated;

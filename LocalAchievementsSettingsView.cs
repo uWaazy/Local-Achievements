@@ -1,3 +1,4 @@
+using LocalAchievements.Services;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
@@ -38,12 +39,22 @@ namespace LocalAchievements
             };
             hint.SetResourceReference(TextBlock.TextProperty, "LOCLocalAchievementsSettingsAutoPlaytimeHint");
 
+            var openLog = new Button
+            {
+                Margin = new Thickness(0, 20, 0, 0),
+                Padding = new Thickness(14, 5, 14, 5),
+                HorizontalAlignment = HorizontalAlignment.Left
+            };
+            openLog.SetResourceReference(ContentControl.ContentProperty, "LOCLocalAchievementsSettingsOpenLog");
+            openLog.Click += (sender, e) => AdvancedLogger.OpenLogLocation();
+
             var panel = new StackPanel { Margin = new Thickness(20) };
             panel.Children.Add(title);
             panel.Children.Add(subtitle);
             panel.Children.Add(autoStartup);
             panel.Children.Add(autoPlaytime);
             panel.Children.Add(hint);
+            panel.Children.Add(openLog);
 
             Content = panel;
         }

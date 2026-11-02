@@ -59,14 +59,6 @@ namespace LocalAchievements
                 Icon = icon,
                 Action = (context) => CopyDiagnosticFromMenu(context)
             };
-
-            yield return new GameMenuItem
-            {
-                MenuSection = section,
-                Description = ResourceProvider.GetString("LOCLocalAchievementsOpenLogMenu"),
-                Icon = icon,
-                Action = (context) => OpenLogFolder()
-            };
         }
 
         private void CopyDiagnosticFromMenu(GameMenuItemActionArgs context)
@@ -87,24 +79,6 @@ namespace LocalAchievements
             PlayniteApi.Dialogs.ShowMessage(
                 string.Format(ResourceProvider.GetString("LOCLocalAchievementsDiagnosticDone"), report),
                 ResourceProvider.GetString("LOCLocalAchievementsSteamToolsTitle"));
-        }
-
-        private void OpenLogFolder()
-        {
-            try
-            {
-                string path = AdvancedLogger.LogFilePath;
-                if (string.IsNullOrEmpty(path)) return;
-
-                if (File.Exists(path))
-                    System.Diagnostics.Process.Start("explorer.exe", $"/select,\"{path}\"");
-                else
-                    System.Diagnostics.Process.Start("explorer.exe", $"\"{Path.GetDirectoryName(path)}\"");
-            }
-            catch (Exception ex)
-            {
-                logger.Error(ex, "Failed to open the log folder.");
-            }
         }
 
         private void SyncPlaytimeFromMenu(GameMenuItemActionArgs context)
@@ -337,15 +311,19 @@ namespace LocalAchievements
                         .Where(g => g.PluginId == SteamPluginId)
                         .ToList();
 
+                    int checkedGames = 0, updatedGames = 0;
+
                     foreach (var game in steamGames)
                     {
                         VerificarEAdicionarTagSteamTools(game);
 
                         if (_syncService.IsSteamToolsGame(game))
                         {
+                            checkedGames++;
                             int count = _syncService.Sync(game);
                             if (count > 0)
                             {
+                                updatedGames++;
                                 game.Modified = DateTime.Now;
                                 PlayniteApi.Database.Games.Update(game);
                             }
@@ -354,6 +332,8 @@ namespace LocalAchievements
                                 _playtimeService.Sync(game);
                         }
                     }
+
+                    AdvancedLogger.Log($"[STARTUP] Checked {checkedGames} Steam Tools games, {updatedGames} updated.");
 
                     var selected = PlayniteApi.MainView.SelectedGames?.FirstOrDefault();
                     if (selected != null) RefreshPlayniteUI(selected);
