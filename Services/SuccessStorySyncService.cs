@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 
 namespace LocalAchievements.Services
 {
@@ -19,6 +20,18 @@ namespace LocalAchievements.Services
         public string Name { get; set; }
         public string ApiName { get; set; }
         public DateTime? DateUnlocked { get; set; }
+        [JsonProperty(NullValueHandling = NullValueHandling.Ignore)] public string Description { get; set; }
+        [JsonProperty(NullValueHandling = NullValueHandling.Ignore)] public string UrlUnlocked { get; set; }
+        [JsonProperty(NullValueHandling = NullValueHandling.Ignore)] public string UrlLocked { get; set; }
+        [JsonProperty(NullValueHandling = NullValueHandling.Ignore)] public bool? IsHidden { get; set; }
+        [JsonProperty(NullValueHandling = NullValueHandling.Ignore)] public double? Percent { get; set; }
+        [JsonProperty(NullValueHandling = NullValueHandling.Ignore)] public double? GamerScore { get; set; }
+        [JsonProperty(NullValueHandling = NullValueHandling.Ignore)] public int? CategoryOrder { get; set; }
+        [JsonProperty(NullValueHandling = NullValueHandling.Ignore)] public string Category { get; set; }
+        [JsonProperty(NullValueHandling = NullValueHandling.Ignore)] public string ParentCategory { get; set; }
+        [JsonProperty(NullValueHandling = NullValueHandling.Ignore)] public string CategoryRpcs3 { get; set; }
+        [JsonProperty(NullValueHandling = NullValueHandling.Ignore)] public string CategoryShadPS4 { get; set; }
+        [JsonProperty(NullValueHandling = NullValueHandling.Ignore)] public bool? NoRarety { get; set; }
         [JsonExtensionData] public IDictionary<string, JToken> Extra { get; set; }
     }
 
@@ -49,9 +62,63 @@ namespace LocalAchievements.Services
             return Registry.GetValue(@"HKEY_CURRENT_USER\Software\Valve\Steam", "SteamPath", null)?.ToString().Replace('/', Path.DirectorySeparatorChar);
         }
 
+        private static readonly object statusLock = new object();
+        private static Dictionary<string, string> lastStatus;
+
+        private static string StatusFilePath()
+        {
+            string logPath = AdvancedLogger.LogFilePath;
+            return string.IsNullOrEmpty(logPath) ? null : Path.Combine(Path.GetDirectoryName(logPath), "last_status.json");
+        }
+
+        private static bool IsNewStatus(Game game, string text)
+        {
+            string file = StatusFilePath();
+            if (file == null) return true;
+
+            lock (statusLock)
+            {
+                if (lastStatus == null)
+                {
+                    try
+                    {
+                        if (File.Exists(file))
+                            lastStatus = JsonConvert.DeserializeObject<Dictionary<string, string>>(File.ReadAllText(file));
+                    }
+                    catch { }
+                    if (lastStatus == null) lastStatus = new Dictionary<string, string>();
+                }
+
+                string key = game.Id.ToString();
+                if (lastStatus.TryGetValue(key, out string old) && old == text) return false;
+
+                lastStatus[key] = text;
+                try { File.WriteAllText(file, JsonConvert.SerializeObject(lastStatus)); } catch { }
+                return true;
+            }
+        }
+
+        private static void ClearStatus(Game game)
+        {
+            string file = StatusFilePath();
+            if (file == null) return;
+
+            lock (statusLock)
+            {
+                if (lastStatus == null || !lastStatus.Remove(game.Id.ToString())) return;
+                try { File.WriteAllText(file, JsonConvert.SerializeObject(lastStatus)); } catch { }
+            }
+        }
+
+        private static string MaskAccount(string fileName)
+        {
+            return Regex.Replace(fileName ?? "", @"UserGameStats_\d+_", "UserGameStats_<account>_");
+        }
+
         private static string Fail(Game game, string text, bool expected = false)
         {
-            AdvancedLogger.Log($"[{(expected ? "INFO" : "FAIL")}] {game.Name} (AppID {game.GameId}): {text}");
+            if (IsNewStatus(game, text))
+                AdvancedLogger.Log($"[{(expected ? "INFO" : "FAIL")}] {game.Name} (AppID {game.GameId}): {text}");
             return text;
         }
 
@@ -64,6 +131,67 @@ namespace LocalAchievements.Services
         {
             var list = items.Take(count).ToList();
             return list.Count == 0 ? "-" : string.Join(", ", list);
+        }
+
+        private static readonly Dictionary<string, string> SteamLanguages = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            { "pt_BR", "brazilian" }, { "pt_PT", "portuguese" }, { "en_US", "english" }, { "en_GB", "english" },
+            { "es_ES", "spanish" }, { "es_MX", "latam" }, { "de_DE", "german" }, { "fr_FR", "french" },
+            { "it_IT", "italian" }, { "ru_RU", "russian" }, { "pl_PL", "polish" }, { "tr_TR", "turkish" },
+            { "uk_UA", "ukrainian" }, { "zh_CN", "schinese" }, { "zh_TW", "tchinese" }, { "ko_KR", "koreana" },
+            { "ja_JP", "japanese" }, { "nl_NL", "dutch" }, { "cs_CZ", "czech" }, { "hu_HU", "hungarian" }
+        };
+
+        private string GetSteamLanguage()
+        {
+            string code = _api.ApplicationSettings?.Language;
+            return code != null && SteamLanguages.TryGetValue(code, out string language) ? language : "english";
+        }
+
+        private List<SuccessStoryAchievement> BuildItemsFromSchema(Game game, string schemaPath)
+        {
+            var items = new List<SuccessStoryAchievement>();
+
+            try
+            {
+                foreach (var a in SteamSchemaReader.ReadAchievements(schemaPath, game.GameId, GetSteamLanguage()))
+                {
+                    items.Add(new SuccessStoryAchievement
+                    {
+                        Name = a.Name,
+                        ApiName = a.ApiName,
+                        DateUnlocked = null,
+                        Description = a.Description,
+                        UrlUnlocked = a.IconUrl,
+                        UrlLocked = a.IconGrayUrl,
+                        IsHidden = a.Hidden,
+                        Percent = 100,
+                        GamerScore = 0,
+                        CategoryOrder = 0,
+                        Category = "",
+                        ParentCategory = "",
+                        CategoryRpcs3 = "",
+                        CategoryShadPS4 = "",
+                        NoRarety = true
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                AdvancedLogger.Log($"[FAIL] {game.Name} (AppID {game.GameId}): could not read the Steam schema: {ex.GetType().Name}: {ex.Message}");
+            }
+
+            return items;
+        }
+
+        private static string PickStatsFile(string[] files, string accountId, string appId)
+        {
+            if (files.Length == 0) return null;
+            if (string.IsNullOrEmpty(accountId))
+                return files.OrderByDescending(f => File.GetLastWriteTime(f)).First();
+
+            string expected = $"UserGameStats_{accountId}_{appId}.bin";
+            return files.FirstOrDefault(f => string.Equals(Path.GetFileName(f), expected, StringComparison.OrdinalIgnoreCase));
         }
 
         public int Sync(Game game)
@@ -89,7 +217,14 @@ namespace LocalAchievements.Services
                     return 0;
                 }
 
-                string binPath = files.OrderByDescending(f => File.GetLastWriteTime(f)).First();
+                string me = SteamAccount.Resolve(_api, steamPath, out _);
+                string binPath = PickStatsFile(files, me, game.GameId);
+                if (binPath == null)
+                {
+                    reason = Fail(game, "No stats file for your Steam account yet (other accounts on this PC have one, but they are ignored). Start the game once through Steam.", true);
+                    return 0;
+                }
+
                 string schemaPath = Path.Combine(binDir, $"UserGameStatsSchema_{game.GameId}.bin");
 
                 var schemaMap = VdfReader.LoadSchemaTranslation(schemaPath);
@@ -97,7 +232,7 @@ namespace LocalAchievements.Services
 
                 if (localAch.Count == 0)
                 {
-                    reason = Fail(game, $"No unlocked achievements found in {Path.GetFileName(binPath)} (schema entries: {schemaMap.Count}). Normal if nothing is unlocked yet; otherwise the file format may not be recognized.", true);
+                    reason = Fail(game, $"No unlocked achievements found in {MaskAccount(Path.GetFileName(binPath))} (schema entries: {schemaMap.Count}). Normal if nothing is unlocked yet; otherwise the file format may not be recognized.", true);
                     return 0;
                 }
 
@@ -116,13 +251,29 @@ namespace LocalAchievements.Services
                 }
 
                 var db = JsonConvert.DeserializeObject<SuccessStoryDatabase>(File.ReadAllText(jsonPath));
-                if (db?.Items == null || db.Items.Count == 0)
+                if (db == null)
                 {
-                    reason = Fail(game, $"SuccessStory has an empty achievement list for this game (it could not download the achievements), while Steam has {localAch.Count} unlocked locally. Open the game in SuccessStory and refresh its achievements.");
+                    reason = Fail(game, "The SuccessStory data file could not be read.");
                     return 0;
                 }
 
+                bool builtFromSchema = false;
+                if (db.Items == null || db.Items.Count == 0)
+                {
+                    var built = BuildItemsFromSchema(game, schemaPath);
+                    if (built.Count == 0)
+                    {
+                        reason = Fail(game, $"SuccessStory has an empty achievement list for this game and the Steam schema could not be used to rebuild it. Steam has {localAch.Count} unlocked locally.");
+                        return 0;
+                    }
+
+                    db.Items = built;
+                    builtFromSchema = true;
+                    AdvancedLogger.Log($"[REBUILD] {game.Name} (AppID {game.GameId}): SuccessStory list was empty; rebuilt {built.Count} achievements from the Steam schema.");
+                }
+
                 int updated = 0;
+                var matches = new List<string>();
 
                 foreach (var ach in db.Items)
                 {
@@ -147,14 +298,16 @@ namespace LocalAchievements.Services
                     {
                         ach.DateUnlocked = unlockDate;
                         updated++;
-                        AdvancedLogger.Log($"[MATCH CERTEIRO] Steam: '{keyToSearch}' -> Data: {unlockDate}");
+                        matches.Add($"'{keyToSearch}' -> {unlockDate:yyyy-MM-dd HH:mm:ss}");
                     }
                 }
 
-                if (updated > 0)
+                if (updated > 0 || builtFromSchema)
                 {
                     File.WriteAllText(jsonPath, JsonConvert.SerializeObject(db, Formatting.Indented));
-                    AdvancedLogger.Log($"=== SUCESSO: {updated} conquistas injetadas à força! ===");
+                    if (updated <= 10)
+                        foreach (var m in matches) AdvancedLogger.Log($"[MATCH] {game.Name}: {m}");
+                    AdvancedLogger.Log($"[OK] {game.Name}: {updated} achievements injected into SuccessStory.");
                 }
                 else
                 {
@@ -165,6 +318,7 @@ namespace LocalAchievements.Services
                     }
                 }
 
+                if (reason == null) ClearStatus(game);
                 return updated;
             }
             catch (Exception ex)
@@ -213,7 +367,7 @@ namespace LocalAchievements.Services
                     foreach (var f in statFiles)
                     {
                         var fi = new FileInfo(f);
-                        sb.AppendLine($"  - {fi.Name} | {fi.Length} bytes | modified {fi.LastWriteTime:yyyy-MM-dd HH:mm}");
+                        sb.AppendLine($"  - {MaskAccount(fi.Name)} | {fi.Length} bytes | modified {fi.LastWriteTime:yyyy-MM-dd HH:mm}");
                     }
 
                     string schemaPath = Path.Combine(binDir, $"UserGameStatsSchema_{game.GameId}.bin");
@@ -231,8 +385,11 @@ namespace LocalAchievements.Services
 
                     if (statFiles.Length > 0)
                     {
-                        string binPath = statFiles.OrderByDescending(f => File.GetLastWriteTime(f)).First();
-                        localAch = VdfReader.ExtractAchievements(binPath, schemaMap);
+                        string me = SteamAccount.Resolve(_api, steamPath, out string accountSource);
+                        sb.AppendLine($"Steam account detection: {accountSource}");
+                        string binPath = PickStatsFile(statFiles, me, game.GameId);
+                        sb.AppendLine($"Stats file used: {(binPath == null ? "none (no file for your account)" : MaskAccount(Path.GetFileName(binPath)))}");
+                        if (binPath != null) localAch = VdfReader.ExtractAchievements(binPath, schemaMap);
                     }
                     sb.AppendLine($"Unlocked achievements read from Steam: {localAch.Count}");
                     sb.AppendLine($"Steam names sample: {Sample(localAch.Keys, 5)}");

@@ -5,7 +5,7 @@
     <sys:String x:Key="LOCLocalAchievementsSyncMenu">Sync Local Achievements</sys:String>
     <sys:String x:Key="LOCLocalAchievementsReadingData">Reading local data: {0}...</sys:String>
     <sys:String x:Key="LOCLocalAchievementsSyncProgress">Synchronizing local achievements...</sys:String>
-    <sys:String x:Key="LOCLocalAchievementsRestartPrompt">{0} local achievements have been synchronized!&#x0a;&#x0a;Since the visual interface requires a reload, do you want to restart Playnite now to apply the changes?</sys:String>
+    <sys:String xml:space="preserve" x:Key="LOCLocalAchievementsRestartPrompt">{0} local achievements have been synchronized!&#x0a;&#x0a;Since the visual interface requires a reload, do you want to restart Playnite now to apply the changes?</sys:String>
     <sys:String x:Key="LOCLocalAchievementsSyncComplete">Steam Tools - Sync Complete</sys:String>
     <sys:String x:Key="LOCLocalAchievementsUpToDate">Everything is up to date! No new local achievements detected.</sys:String>
     <sys:String x:Key="LOCLocalAchievementsSteamToolsTitle">Steam Tools</sys:String>
@@ -14,7 +14,7 @@
     <sys:String x:Key="LOCLocalAchievementsSyncAchievementsMenu">Sync Achievements</sys:String>
     <sys:String x:Key="LOCLocalAchievementsSyncPlaytimeMenu">Sync Playtime</sys:String>
     <sys:String x:Key="LOCLocalAchievementsPlaytimeProgress">Syncing playtime...</sys:String>
-    <sys:String x:Key="LOCLocalAchievementsPlaytimeResult">Playtime updated from Steam: {0}&#x0a;Skipped (Playnite already has equal or more time): {1}&#x0a;No Steam playtime found: {2}</sys:String>
+    <sys:String xml:space="preserve" x:Key="LOCLocalAchievementsPlaytimeResult">Playtime updated from Steam: {0}&#x0a;Skipped (Playnite already has equal or more time): {1}&#x0a;No Steam playtime found: {2}</sys:String>
     <sys:String x:Key="LOCLocalAchievementsPlaytimeTitle">Local Achievements - Playtime</sys:String>
 
     <sys:String x:Key="LOCLocalAchievementsSettingsAutoStartup">Sync achievements automatically when Playnite starts</sys:String>
@@ -27,7 +27,7 @@
     <sys:String x:Key="LOCLocalAchievementsDiagnosticMenu">Copy Diagnostic Report</sys:String>
     <sys:String x:Key="LOCLocalAchievementsSettingsOpenLog">Open Log Folder</sys:String>
     <sys:String x:Key="LOCLocalAchievementsDiagnosticProgress">Collecting diagnostic data...</sys:String>
-    <sys:String x:Key="LOCLocalAchievementsDiagnosticDone">Diagnostic report copied to the clipboard. Paste it into your GitHub issue.&#x0a;&#x0a;{0}</sys:String>
-    <sys:String x:Key="LOCLocalAchievementsSyncNothing">No achievements were updated.&#x0a;&#x0a;{0}&#x0a;&#x0a;Use Copy Diagnostic Report and attach it to your GitHub issue.</sys:String>
+    <sys:String xml:space="preserve" x:Key="LOCLocalAchievementsDiagnosticDone">Diagnostic report copied to the clipboard. Paste it into your GitHub issue.&#x0a;&#x0a;{0}</sys:String>
+    <sys:String xml:space="preserve" x:Key="LOCLocalAchievementsSyncNothing">No achievements were updated.&#x0a;&#x0a;{0}&#x0a;&#x0a;Use Copy Diagnostic Report and attach it to your GitHub issue.</sys:String>
 
 </ResourceDictionary>

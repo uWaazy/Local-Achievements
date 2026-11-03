@@ -5,7 +5,7 @@
     <sys:String x:Key="LOCLocalAchievementsSyncMenu">Sincronizar Logros Locales</sys:String>
     <sys:String x:Key="LOCLocalAchievementsReadingData">Leyendo datos locales: {0}...</sys:String>
     <sys:String x:Key="LOCLocalAchievementsSyncProgress">Sincronizando logros locales...</sys:String>
-    <sys:String x:Key="LOCLocalAchievementsRestartPrompt">¡Se han sincronizado {0} logros locales!&#x0a;&#x0a;Dado que la interfaz visual requiere recargarse, ¿deseas reiniciar Playnite ahora para aplicar los cambios visuales?</sys:String>
+    <sys:String xml:space="preserve" x:Key="LOCLocalAchievementsRestartPrompt">¡Se han sincronizado {0} logros locales!&#x0a;&#x0a;Dado que la interfaz visual requiere recargarse, ¿deseas reiniciar Playnite ahora para aplicar los cambios visuales?</sys:String>
     <sys:String x:Key="LOCLocalAchievementsSyncComplete">Steam Tools - Sincronización Completada</sys:String>
     <sys:String x:Key="LOCLocalAchievementsUpToDate">¡Todo actualizado! No se han detectado nuevos logros locales.</sys:String>
     <sys:String x:Key="LOCLocalAchievementsSteamToolsTitle">Steam Tools</sys:String>
@@ -14,7 +14,7 @@
     <sys:String x:Key="LOCLocalAchievementsSyncAchievementsMenu">Sincronizar Logros</sys:String>
     <sys:String x:Key="LOCLocalAchievementsSyncPlaytimeMenu">Sincronizar Horas</sys:String>
     <sys:String x:Key="LOCLocalAchievementsPlaytimeProgress">Sincronizando horas jugadas...</sys:String>
-    <sys:String x:Key="LOCLocalAchievementsPlaytimeResult">Horas actualizadas desde Steam: {0}&#x0a;Omitidos (Playnite ya tiene igual o más tiempo): {1}&#x0a;Sin horas en Steam: {2}</sys:String>
+    <sys:String xml:space="preserve" x:Key="LOCLocalAchievementsPlaytimeResult">Horas actualizadas desde Steam: {0}&#x0a;Omitidos (Playnite ya tiene igual o más tiempo): {1}&#x0a;Sin horas en Steam: {2}</sys:String>
     <sys:String x:Key="LOCLocalAchievementsPlaytimeTitle">Local Achievements - Horas</sys:String>
 
     <sys:String x:Key="LOCLocalAchievementsSettingsAutoStartup">Sincronizar logros automáticamente al iniciar Playnite</sys:String>
@@ -27,7 +27,7 @@
     <sys:String x:Key="LOCLocalAchievementsDiagnosticMenu">Copiar Informe de Diagnóstico</sys:String>
     <sys:String x:Key="LOCLocalAchievementsSettingsOpenLog">Abrir Carpeta de Registros</sys:String>
     <sys:String x:Key="LOCLocalAchievementsDiagnosticProgress">Recopilando datos de diagnóstico...</sys:String>
-    <sys:String x:Key="LOCLocalAchievementsDiagnosticDone">Informe de diagnóstico copiado al portapapeles. Pégalo en tu issue de GitHub.&#x0a;&#x0a;{0}</sys:String>
-    <sys:String x:Key="LOCLocalAchievementsSyncNothing">No se actualizó ningún logro.&#x0a;&#x0a;{0}&#x0a;&#x0a;Usa Copiar Informe de Diagnóstico y adjúntalo en tu issue de GitHub.</sys:String>
+    <sys:String xml:space="preserve" x:Key="LOCLocalAchievementsDiagnosticDone">Informe de diagnóstico copiado al portapapeles. Pégalo en tu issue de GitHub.&#x0a;&#x0a;{0}</sys:String>
+    <sys:String xml:space="preserve" x:Key="LOCLocalAchievementsSyncNothing">No se actualizó ningún logro.&#x0a;&#x0a;{0}&#x0a;&#x0a;Usa Copiar Informe de Diagnóstico y adjúntalo en tu issue de GitHub.</sys:String>
 
 </ResourceDictionary>

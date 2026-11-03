@@ -311,7 +311,7 @@ namespace LocalAchievements
                         .Where(g => g.PluginId == SteamPluginId)
                         .ToList();
 
-                    int checkedGames = 0, updatedGames = 0;
+                    int checkedGames = 0, updatedGames = 0, gamesWithNotes = 0;
 
                     foreach (var game in steamGames)
                     {
@@ -320,7 +320,8 @@ namespace LocalAchievements
                         if (_syncService.IsSteamToolsGame(game))
                         {
                             checkedGames++;
-                            int count = _syncService.Sync(game);
+                            int count = _syncService.Sync(game, out string note);
+                            if (note != null) gamesWithNotes++;
                             if (count > 0)
                             {
                                 updatedGames++;
@@ -333,7 +334,7 @@ namespace LocalAchievements
                         }
                     }
 
-                    AdvancedLogger.Log($"[STARTUP] Checked {checkedGames} Steam Tools games, {updatedGames} updated.");
+                    AdvancedLogger.Log($"[STARTUP] Checked {checkedGames} Steam Tools games, {updatedGames} updated, {gamesWithNotes} with notes (only changes are logged per game).");
 
                     var selected = PlayniteApi.MainView.SelectedGames?.FirstOrDefault();
                     if (selected != null) RefreshPlayniteUI(selected);
