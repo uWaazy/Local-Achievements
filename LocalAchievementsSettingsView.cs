@@ -1,13 +1,16 @@
 using LocalAchievements.Services;
+using Playnite.SDK;
+using System;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Data;
 
 namespace LocalAchievements
 {
     public class LocalAchievementsSettingsView : UserControl
     {
-        public LocalAchievementsSettingsView()
+        public LocalAchievementsSettingsView(Action checkForUpdates)
         {
             var title = new TextBlock
             {
@@ -48,6 +51,32 @@ namespace LocalAchievements
             openLog.SetResourceReference(ContentControl.ContentProperty, "LOCLocalAchievementsSettingsOpenLog");
             openLog.Click += (sender, e) => AdvancedLogger.OpenLogLocation();
 
+            var updateLabel = new TextBlock
+            {
+                Margin = new Thickness(0, 24, 0, 6),
+                FontWeight = FontWeights.Bold
+            };
+            updateLabel.SetResourceReference(TextBlock.TextProperty, "LOCLocalAchievementsSettingsUpdateMode");
+
+            var updateMode = new ComboBox
+            {
+                HorizontalAlignment = HorizontalAlignment.Left,
+                MinWidth = 320
+            };
+            updateMode.Items.Add(ResourceProvider.GetString("LOCLocalAchievementsSettingsUpdateModeDialog"));
+            updateMode.Items.Add(ResourceProvider.GetString("LOCLocalAchievementsSettingsUpdateModeNotification"));
+            updateMode.Items.Add(ResourceProvider.GetString("LOCLocalAchievementsSettingsUpdateModeOff"));
+            updateMode.SetBinding(Selector.SelectedIndexProperty, new Binding("Settings.UpdatePromptMode") { Mode = BindingMode.TwoWay });
+
+            var checkUpdates = new Button
+            {
+                Margin = new Thickness(0, 10, 0, 0),
+                Padding = new Thickness(14, 5, 14, 5),
+                HorizontalAlignment = HorizontalAlignment.Left
+            };
+            checkUpdates.SetResourceReference(ContentControl.ContentProperty, "LOCLocalAchievementsSettingsCheckUpdates");
+            checkUpdates.Click += (sender, e) => checkForUpdates();
+
             var panel = new StackPanel { Margin = new Thickness(20) };
             panel.Children.Add(title);
             panel.Children.Add(subtitle);
@@ -55,6 +84,9 @@ namespace LocalAchievements
             panel.Children.Add(autoPlaytime);
             panel.Children.Add(hint);
             panel.Children.Add(openLog);
+            panel.Children.Add(updateLabel);
+            panel.Children.Add(updateMode);
+            panel.Children.Add(checkUpdates);
 
             Content = panel;
         }

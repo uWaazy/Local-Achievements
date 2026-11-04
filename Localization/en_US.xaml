@@ -30,4 +30,22 @@
     <sys:String xml:space="preserve" x:Key="LOCLocalAchievementsDiagnosticDone">Diagnostic report copied to the clipboard. Paste it into your GitHub issue.&#x0a;&#x0a;{0}</sys:String>
     <sys:String xml:space="preserve" x:Key="LOCLocalAchievementsSyncNothing">No achievements were updated.&#x0a;&#x0a;{0}&#x0a;&#x0a;Use Copy Diagnostic Report and attach it to your GitHub issue.</sys:String>
 
+    <sys:String x:Key="LOCLocalAchievementsUpdateTitle">Local Achievements - Update available</sys:String>
+    <sys:String xml:space="preserve" x:Key="LOCLocalAchievementsUpdatePrompt">A new version is available.&#x0a;&#x0a;Installed version: {0}&#x0a;New version: {1}&#x0a;&#x0a;What's new:&#x0a;{2}&#x0a;&#x0a;Update now?</sys:String>
+    <sys:String x:Key="LOCLocalAchievementsUpdateNotification">Local Achievements {1} is available (installed: {0}). Click to see what is new and update.</sys:String>
+    <sys:String x:Key="LOCLocalAchievementsUpdateDownloading">Downloading and verifying the update...</sys:String>
+    <sys:String xml:space="preserve" x:Key="LOCLocalAchievementsUpdateDone">Version {0} was installed and verified.&#x0a;&#x0a;Restart Playnite now to finish the update?</sys:String>
+    <sys:String xml:space="preserve" x:Key="LOCLocalAchievementsUpdateFailed">The update could not be installed automatically. Your current version was kept.&#x0a;&#x0a;Reason: {0}&#x0a;&#x0a;Open the release page to update manually?</sys:String>
+    <sys:String x:Key="LOCLocalAchievementsUpdateUpToDate">You are using the latest version ({0}).</sys:String>
+    <sys:String x:Key="LOCLocalAchievementsUpdateCheckFailed">Could not check for updates: {0}</sys:String>
+    <sys:String x:Key="LOCLocalAchievementsUpdateGameRunning">A game is running. Close it and try again, so Playnite can restart safely.</sys:String>
+    <sys:String x:Key="LOCLocalAchievementsUpdateDevMode">This copy runs from a developer folder, so automatic updates are disabled. Latest release: {0}.</sys:String>
+    <sys:String x:Key="LOCLocalAchievementsUpdateNoNotes">(no description published)</sys:String>
+    <sys:String x:Key="LOCLocalAchievementsUpdated">Local Achievements was updated to version {0}.</sys:String>
+    <sys:String x:Key="LOCLocalAchievementsSettingsUpdateMode">Update notifications</sys:String>
+    <sys:String x:Key="LOCLocalAchievementsSettingsUpdateModeDialog">Ask me with a window</sys:String>
+    <sys:String x:Key="LOCLocalAchievementsSettingsUpdateModeNotification">Only show a Playnite notification</sys:String>
+    <sys:String x:Key="LOCLocalAchievementsSettingsUpdateModeOff">Do not check for updates</sys:String>
+    <sys:String x:Key="LOCLocalAchievementsSettingsCheckUpdates">Check for updates now</sys:String>
+
 </ResourceDictionary>

@@ -17,6 +17,7 @@ namespace LocalAchievements
         private SuccessStorySyncService _syncService;
         private SteamPlaytimeService _playtimeService;
         private readonly LocalAchievementsSettingsViewModel _settingsVM;
+        private UpdateService _updateService;
 
         private readonly Guid SteamPluginId = Guid.Parse("cb91dfc9-b977-43bf-8e70-55f46e410fab");
 
@@ -29,6 +30,7 @@ namespace LocalAchievements
             _settingsVM = new LocalAchievementsSettingsViewModel(this);
             _syncService = new SuccessStorySyncService(api);
             _playtimeService = new SteamPlaytimeService(api);
+            _updateService = new UpdateService(Path.GetDirectoryName(typeof(LocalAchievements).Assembly.Location), () => _settingsVM.Settings.UpdateFeedUrl);
         }
 
         public override IEnumerable<GameMenuItem> GetGameMenuItems(GetGameMenuItemsArgs args)
@@ -79,6 +81,220 @@ namespace LocalAchievements
             PlayniteApi.Dialogs.ShowMessage(
                 string.Format(ResourceProvider.GetString("LOCLocalAchievementsDiagnosticDone"), report),
                 ResourceProvider.GetString("LOCLocalAchievementsSteamToolsTitle"));
+        }
+
+        private void RestartPlaynite()
+        {
+            string playniteExe = System.Diagnostics.Process.GetCurrentProcess().MainModule.FileName;
+
+            System.Diagnostics.ProcessStartInfo restartInfo = new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = "cmd.exe",
+                Arguments = $"/c timeout /t 3 /nobreak >nul & start \"\" \"{playniteExe}\"",
+                WindowStyle = System.Diagnostics.ProcessWindowStyle.Hidden,
+                CreateNoWindow = true
+            };
+            System.Diagnostics.Process.Start(restartInfo);
+
+            PlayniteApi.MainView.UIDispatcher.Invoke(() =>
+            {
+                System.Windows.Application.Current.Shutdown();
+            });
+        }
+
+        private void HandlePostUpdate()
+        {
+            try
+            {
+                _updateService.CleanupLeftovers();
+
+                var installed = _updateService.GetInstalledVersion();
+                if (installed == null) return;
+
+                string current = installed.ToString();
+                var settings = _settingsVM.Settings;
+                if (settings.LastRunVersion == current) return;
+
+                bool upgraded = !string.IsNullOrEmpty(settings.LastRunVersion);
+                settings.LastRunVersion = current;
+                SavePluginSettings(settings);
+
+                if (upgraded)
+                {
+                    PlayniteApi.Notifications.Add(new NotificationMessage(
+                        "LocalAchievements.Updated",
+                        string.Format(ResourceProvider.GetString("LOCLocalAchievementsUpdated"), current),
+                        NotificationType.Info));
+                    AdvancedLogger.Log($"[UPDATE] Running version {current}.");
+                }
+            }
+            catch (Exception ex)
+            {
+                AdvancedLogger.Log("[UPDATE] Post-update handling failed: " + ex.Message);
+            }
+        }
+
+        private void ScheduleUpdateCheck()
+        {
+            if (_settingsVM.Settings.UpdatePromptMode == 2) return;
+
+            Task.Run(async () =>
+            {
+                await Task.Delay(15000);
+                StartUpdateCheck(false);
+            });
+        }
+
+        private void StartUpdateCheck(bool interactive)
+        {
+            Task.Run(() =>
+            {
+                UpdateCheckResult result;
+                try
+                {
+                    result = _updateService.Check();
+                }
+                catch (Exception ex)
+                {
+                    result = new UpdateCheckResult { Status = UpdateStatus.Error, Error = ex.Message };
+                }
+
+                PlayniteApi.MainView.UIDispatcher.Invoke(() => HandleUpdateResult(result, interactive));
+            });
+        }
+
+        private void HandleUpdateResult(UpdateCheckResult result, bool interactive)
+        {
+            string title = ResourceProvider.GetString("LOCLocalAchievementsUpdateTitle");
+
+            if (result.Status == UpdateStatus.Error)
+            {
+                AdvancedLogger.Log("[UPDATE] Check failed: " + result.Error);
+                if (interactive)
+                    PlayniteApi.Dialogs.ShowMessage(string.Format(ResourceProvider.GetString("LOCLocalAchievementsUpdateCheckFailed"), result.Error), title);
+                return;
+            }
+
+            if (result.Status == UpdateStatus.UpToDate)
+            {
+                if (interactive)
+                    PlayniteApi.Dialogs.ShowMessage(string.Format(ResourceProvider.GetString("LOCLocalAchievementsUpdateUpToDate"), result.Installed), title);
+                return;
+            }
+
+            var info = result.Info;
+            AdvancedLogger.Log($"[UPDATE] Version {info.Version} is available (installed: {result.Installed}).");
+
+            if (!_updateService.IsInstalledCopy(PlayniteApi.Paths.ConfigurationPath))
+            {
+                AdvancedLogger.Log("[UPDATE] Running from a developer folder; automatic update disabled.");
+                if (interactive)
+                    PlayniteApi.Dialogs.ShowMessage(string.Format(ResourceProvider.GetString("LOCLocalAchievementsUpdateDevMode"), info.Version), title);
+                return;
+            }
+
+            if (!interactive && _settingsVM.Settings.UpdatePromptMode == 1)
+            {
+                AddUpdateNotification(info, result.Installed);
+                return;
+            }
+
+            PromptUpdate(info, result.Installed, true);
+        }
+
+        private void AddUpdateNotification(UpdateInfo info, Version installed)
+        {
+            PlayniteApi.Notifications.Add(new NotificationMessage(
+                "LocalAchievements.Update." + info.Tag,
+                string.Format(ResourceProvider.GetString("LOCLocalAchievementsUpdateNotification"), installed, info.Version),
+                NotificationType.Info,
+                () => PromptUpdate(info, installed, false)));
+        }
+
+        private void PromptUpdate(UpdateInfo info, Version installed, bool offerNotificationOnDecline)
+        {
+            string notes = string.IsNullOrWhiteSpace(info.Notes) ? ResourceProvider.GetString("LOCLocalAchievementsUpdateNoNotes") : info.Notes;
+
+            var answer = PlayniteApi.Dialogs.ShowMessage(
+                string.Format(ResourceProvider.GetString("LOCLocalAchievementsUpdatePrompt"), installed, info.Version, notes),
+                ResourceProvider.GetString("LOCLocalAchievementsUpdateTitle"),
+                System.Windows.MessageBoxButton.YesNo);
+
+            if (answer == System.Windows.MessageBoxResult.Yes)
+            {
+                InstallUpdate(info);
+            }
+            else if (offerNotificationOnDecline)
+            {
+                AddUpdateNotification(info, installed);
+            }
+        }
+
+        private void InstallUpdate(UpdateInfo info)
+        {
+            string title = ResourceProvider.GetString("LOCLocalAchievementsUpdateTitle");
+
+            if (PlayniteApi.Database.Games.Any(g => g.IsRunning))
+            {
+                PlayniteApi.Dialogs.ShowMessage(ResourceProvider.GetString("LOCLocalAchievementsUpdateGameRunning"), title);
+                return;
+            }
+
+            string error = null;
+            bool cancelled = false;
+
+            PlayniteApi.Dialogs.ActivateGlobalProgress((progress) =>
+            {
+                try
+                {
+                    string package = _updateService.DownloadAndVerify(info, progress.CancelToken);
+                    _updateService.Install(package, info);
+                }
+                catch (OperationCanceledException)
+                {
+                    cancelled = true;
+                }
+                catch (Exception ex)
+                {
+                    error = ex is UpdateException ? ex.Message : ex.GetType().Name + ": " + ex.Message;
+                }
+            }, new GlobalProgressOptions(ResourceProvider.GetString("LOCLocalAchievementsUpdateDownloading"), true));
+
+            if (cancelled)
+            {
+                AdvancedLogger.Log("[UPDATE] Cancelled by the user.");
+                return;
+            }
+
+            if (error != null)
+            {
+                AdvancedLogger.Log("[FAIL] Update to " + info.Version + " failed: " + error);
+
+                var open = PlayniteApi.Dialogs.ShowMessage(
+                    string.Format(ResourceProvider.GetString("LOCLocalAchievementsUpdateFailed"), error),
+                    title,
+                    System.Windows.MessageBoxButton.YesNo);
+
+                if (open == System.Windows.MessageBoxResult.Yes)
+                {
+                    string url = string.IsNullOrEmpty(info.ReleaseUrl) ? "https://github.com/uWaazy/Local-Achievements/releases" : info.ReleaseUrl;
+                    try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(url) { UseShellExecute = true }); }
+                    catch (Exception ex) { AdvancedLogger.Log("[UPDATE] Could not open the release page: " + ex.Message); }
+                }
+                return;
+            }
+
+            AdvancedLogger.Log("[UPDATE] Installed version " + info.Version + " (restart required).");
+
+            var restart = PlayniteApi.Dialogs.ShowMessage(
+                string.Format(ResourceProvider.GetString("LOCLocalAchievementsUpdateDone"), info.Version),
+                title,
+                System.Windows.MessageBoxButton.YesNo);
+
+            if (restart == System.Windows.MessageBoxResult.Yes)
+            {
+                RestartPlaynite();
+            }
         }
 
         private void SyncPlaytimeFromMenu(GameMenuItemActionArgs context)
@@ -164,21 +380,7 @@ namespace LocalAchievements
 
                 if (result == System.Windows.MessageBoxResult.Yes)
                 {
-                    string playniteExe = System.Diagnostics.Process.GetCurrentProcess().MainModule.FileName;
-
-                    System.Diagnostics.ProcessStartInfo restartInfo = new System.Diagnostics.ProcessStartInfo
-                    {
-                        FileName = "cmd.exe",
-                        Arguments = $"/c timeout /t 3 /nobreak >nul & start \"\" \"{playniteExe}\"",
-                        WindowStyle = System.Diagnostics.ProcessWindowStyle.Hidden,
-                        CreateNoWindow = true
-                    };
-                    System.Diagnostics.Process.Start(restartInfo);
-
-                    PlayniteApi.MainView.UIDispatcher.Invoke(() =>
-                    {
-                        System.Windows.Application.Current.Shutdown();
-                    });
+                    RestartPlaynite();
                 }
                 else
                 {
@@ -299,6 +501,9 @@ namespace LocalAchievements
         {
             PlayniteApi.Database.Games.ItemCollectionChanged += Games_ItemCollectionChanged;
 
+            HandlePostUpdate();
+            ScheduleUpdateCheck();
+
             if (!_settingsVM.Settings.EnableAutoSyncOnStartup) return;
 
             Task.Run(async () =>
@@ -406,6 +611,6 @@ namespace LocalAchievements
         }
 
         public override ISettings GetSettings(bool firstRunSettings) { return _settingsVM; }
-        public override System.Windows.Controls.UserControl GetSettingsView(bool firstRunSettings) { return new LocalAchievementsSettingsView { DataContext = _settingsVM }; }
+        public override System.Windows.Controls.UserControl GetSettingsView(bool firstRunSettings) { return new LocalAchievementsSettingsView(() => StartUpdateCheck(true)) { DataContext = _settingsVM }; }
     }
 }

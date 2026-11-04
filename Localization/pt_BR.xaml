@@ -30,4 +30,22 @@
     <sys:String xml:space="preserve" x:Key="LOCLocalAchievementsDiagnosticDone">Relatório de diagnóstico copiado para a área de transferência. Cole na sua issue do GitHub.&#x0a;&#x0a;{0}</sys:String>
     <sys:String xml:space="preserve" x:Key="LOCLocalAchievementsSyncNothing">Nenhuma conquista foi atualizada.&#x0a;&#x0a;{0}&#x0a;&#x0a;Use Copiar Relatório de Diagnóstico e anexe na sua issue do GitHub.</sys:String>
 
+    <sys:String x:Key="LOCLocalAchievementsUpdateTitle">Local Achievements - Atualização disponível</sys:String>
+    <sys:String xml:space="preserve" x:Key="LOCLocalAchievementsUpdatePrompt">Há uma nova versão disponível.&#x0a;&#x0a;Versão instalada: {0}&#x0a;Nova versão: {1}&#x0a;&#x0a;Novidades:&#x0a;{2}&#x0a;&#x0a;Atualizar agora?</sys:String>
+    <sys:String x:Key="LOCLocalAchievementsUpdateNotification">Local Achievements {1} disponível (instalada: {0}). Clique para ver as novidades e atualizar.</sys:String>
+    <sys:String x:Key="LOCLocalAchievementsUpdateDownloading">Baixando e verificando a atualização...</sys:String>
+    <sys:String xml:space="preserve" x:Key="LOCLocalAchievementsUpdateDone">A versão {0} foi instalada e verificada.&#x0a;&#x0a;Reiniciar o Playnite agora para concluir a atualização?</sys:String>
+    <sys:String xml:space="preserve" x:Key="LOCLocalAchievementsUpdateFailed">Não foi possível instalar a atualização automaticamente. A sua versão atual foi mantida.&#x0a;&#x0a;Motivo: {0}&#x0a;&#x0a;Abrir a página do release para atualizar manualmente?</sys:String>
+    <sys:String x:Key="LOCLocalAchievementsUpdateUpToDate">Você está usando a versão mais recente ({0}).</sys:String>
+    <sys:String x:Key="LOCLocalAchievementsUpdateCheckFailed">Não foi possível verificar atualizações: {0}</sys:String>
+    <sys:String x:Key="LOCLocalAchievementsUpdateGameRunning">Há um jogo em execução. Feche-o e tente de novo, para o Playnite poder reiniciar com segurança.</sys:String>
+    <sys:String x:Key="LOCLocalAchievementsUpdateDevMode">Esta cópia roda de uma pasta de desenvolvedor, então a atualização automática está desativada. Último release: {0}.</sys:String>
+    <sys:String x:Key="LOCLocalAchievementsUpdateNoNotes">(nenhuma descrição publicada)</sys:String>
+    <sys:String x:Key="LOCLocalAchievementsUpdated">O Local Achievements foi atualizado para a versão {0}.</sys:String>
+    <sys:String x:Key="LOCLocalAchievementsSettingsUpdateMode">Avisos de atualização</sys:String>
+    <sys:String x:Key="LOCLocalAchievementsSettingsUpdateModeDialog">Perguntar com uma janela</sys:String>
+    <sys:String x:Key="LOCLocalAchievementsSettingsUpdateModeNotification">Apenas mostrar uma notificação do Playnite</sys:String>
+    <sys:String x:Key="LOCLocalAchievementsSettingsUpdateModeOff">Não verificar atualizações</sys:String>
+    <sys:String x:Key="LOCLocalAchievementsSettingsCheckUpdates">Verificar atualizações agora</sys:String>
+
 </ResourceDictionary>
