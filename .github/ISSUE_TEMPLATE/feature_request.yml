@@ -1,24 +1,39 @@
 name: Feature request
 description: Suggest an improvement or a new feature
-title: "[Feature] "
-labels: ["enhancement"]
+title: "[FEATURE] "
+labels: ["enhancement", "needs-triage"]
 body:
   - type: textarea
     id: problem
     attributes:
-      label: What problem would this solve?
-      description: Describe the situation where you need it.
+      label: Problem or motivation
+      description: What are you trying to do, and what gets in the way today?
     validations:
       required: true
   - type: textarea
     id: solution
     attributes:
-      label: Suggested solution
-      description: How do you imagine it working?
+      label: Proposed solution
+      description: How would you like it to work?
     validations:
       required: true
   - type: textarea
-    id: samples
+    id: alternatives
     attributes:
-      label: Samples and links
-      description: For new achievement sources (cracks, emulators), attach a sample achievements file and list the files in the game folder.
+      label: Alternatives considered
+      description: Other ways you tried or thought about.
+  - type: dropdown
+    id: external_dependency
+    attributes:
+      label: Does it depend on something new in an external API or service?
+      options:
+        - No
+        - Yes (explain in the context field)
+        - I am not sure
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Extra context
+      description: For new achievement sources (cracks, emulators), attach a sample achievements file and the list of files in the game folder.

@@ -1,50 +1,58 @@
 name: Bug report
-description: Achievements or playtime are not syncing, or something else is broken
-title: "[Bug] "
-labels: ["bug"]
+description: Something is not working (achievements, playtime, menu, settings...)
+title: "[BUG] "
+labels: ["bug", "needs-triage"]
 body:
   - type: markdown
     attributes:
       value: |
-        Thanks for reporting! The more details you give, the faster it can be fixed.
-        Please search the existing issues first.
+        Thanks for taking the time to report a problem. The diagnostic report and the log usually point straight to the cause, so please include them.
   - type: input
-    id: game
+    id: plugin_version
     attributes:
-      label: Game name and Steam AppID
-      description: "Example: Marvel's Spider-Man: Miles Morales (1817190)"
+      label: Local Achievements version
+      description: "Playnite > Add-ons > Extensions > Installed > Generic. Example: 1.3.3"
+      placeholder: "1.3.3"
+    validations:
+      required: true
+  - type: input
+    id: playnite_version
+    attributes:
+      label: Playnite version
+      description: "Playnite main menu > About Playnite. Example: 10.63"
+      placeholder: "10.63"
     validations:
       required: true
   - type: dropdown
-    id: source
+    id: os
     attributes:
-      label: How was the game added?
+      label: Windows version
       options:
-        - Steam Tools
-        - Lua Tools
-        - Another manifest/lua tool
-        - Cracked game (ALI213, CODEX, etc.)
-        - Official Steam purchase
-        - Other
+        - Windows 11
+        - Windows 10
+        - Other (describe below)
     validations:
       required: true
   - type: dropdown
     id: area
     attributes:
-      label: What is not working?
+      label: Affected area
       options:
-        - Achievements
-        - Playtime
-        - Context menu
-        - Settings
+        - Achievements sync (Steam Tools / Lua Tools)
+        - SuccessStory list or unlock dates
+        - Playtime sync
+        - Right-click menu
+        - Settings screen
+        - Diagnostic report or logs
+        - Installation or update
         - Other
     validations:
       required: true
   - type: textarea
-    id: description
+    id: what_happened
     attributes:
-      label: Describe the problem
-      description: What did you expect and what happened instead?
+      label: What happened?
+      description: Describe the problem and what you expected to happen instead.
     validations:
       required: true
   - type: textarea
@@ -55,22 +63,45 @@ body:
         1. Right-click the game
         2. Local Achievements > Sync Achievements
         3. See the message
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Log
+      description: |
+        Paste or attach `LocalAchievements.log`. It only contains lines written by this plugin.
+        Location: `%AppData%\Playnite\ExtensionsData\a1b2c3d4-e5f6-7890-1234-567890abcdef\LocalAchievements.log`
+        You can also open the folder from Add-ons > Extensions settings > Generic > Local Achievements > Open Log Folder.
+        If you only have `playnite.log`, keep just the lines that contain `[FAIL]`, `[INFO]`, `[HORAS]`, `[REBUILD]` or `[STARTUP]`.
+      render: text
+    validations:
+      required: true
   - type: textarea
     id: diagnostic
     attributes:
       label: Diagnostic report
       description: Right-click the game > Local Achievements > Copy Diagnostic Report, then paste it here.
       render: text
-    validations:
-      required: true
-  - type: input
-    id: versions
-    attributes:
-      label: Versions
-      description: Plugin, Playnite and SuccessStory versions
-      placeholder: "Local Achievements 1.3.0 / Playnite 10.x / SuccessStory 3.x"
   - type: textarea
-    id: extra
+    id: screenshots
     attributes:
-      label: Logs and screenshots
-      description: Right-click a game > Local Achievements > Open Log Folder, then attach LocalAchievements.log. Screenshots are welcome.
+      label: Screenshots
+      description: Drag and drop images here. Hide anything personal.
+  - type: input
+    id: worked_before
+    attributes:
+      label: Did it work in an earlier version?
+      description: If yes, tell which version.
+      placeholder: "Yes, in 1.3.1"
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      options:
+        - label: I searched the existing issues and did not find a duplicate.
+          required: true
+        - label: I am using the latest version of the plugin.
+          required: true
+        - label: I did not paste passwords, tokens or cookies.
+          required: true
