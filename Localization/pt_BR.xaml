@@ -49,8 +49,12 @@
     <sys:String x:Key="LOCLocalAchievementsSettingsCheckUpdates">Verificar atualizações agora</sys:String>
 
     <sys:String x:Key="LOCLocalAchievementsSettingsAutoReapply">Restaurar as conquistas automaticamente quando o SuccessStory atualizar os dados dele</sys:String>
-    <sys:String x:Key="LOCLocalAchievementsReappliedNotification">Conquistas restauradas nos dados do SuccessStory em: {0}. Elas aparecem depois de reiniciar o Playnite. Clique para reiniciar.</sys:String>
-
-    <sys:String xml:space="preserve" x:Key="LOCLocalAchievementsReappliedRestartPrompt">As conquistas foram restauradas e confirmadas no disco em:&#x0a;{0}&#x0a;&#x0a;O SuccessStory só mostra depois de reiniciar o Playnite. Reiniciar agora?</sys:String>
+    <sys:String x:Key="LOCLocalAchievementsReappliedNotification">{0}: {1} conquistas restauradas nos dados do SuccessStory. Clique para reiniciar o Playnite e aplicar.</sys:String>
+    <sys:String x:Key="LOCLocalAchievementsReappliedNotificationSingle">{0}: {1} conquistas restauradas nos dados do SuccessStory. Clique para reiniciar o Playnite e aplicar.</sys:String>
+    <sys:String x:Key="LOCLocalAchievementsReappliedNotificationMultiple">{0} conquistas restauradas nos dados do SuccessStory em: {1}. Clique para reiniciar o Playnite e aplicar.</sys:String>
+    <sys:String xml:space="preserve" x:Key="LOCLocalAchievementsReappliedRestartPrompt">As conquistas foram restauradas nos dados do SuccessStory em:&#x0a;{0}&#x0a;&#x0a;O SuccessStory só mostra depois de reiniciar o Playnite. Reiniciar agora?</sys:String>
+    <sys:String xml:space="preserve" x:Key="LOCLocalAchievementsReappliedPromptSingle">Foram localizadas e restauradas {0} conquistas em {1}!&#x0a;&#x0a;O SuccessStory requer reiniciar o Playnite para que as conquistas apareçam na interface.&#x0a;&#x0a;Deseja reiniciar o Playnite agora para aplicar as mudanças?</sys:String>
+    <sys:String xml:space="preserve" x:Key="LOCLocalAchievementsReappliedPromptMultiple">Foram localizadas e restauradas conquistas nos seguintes jogos:&#x0a;{0}&#x0a;&#x0a;Total de conquistas restauradas: {1}.&#x0a;O SuccessStory requer reiniciar o Playnite para que as conquistas apareçam na interface.&#x0a;&#x0a;Deseja reiniciar o Playnite agora para aplicar as mudanças?</sys:String>
+    <sys:String x:Key="LOCLocalAchievementsAchievementCount">{0} conquistas</sys:String>
 
 </ResourceDictionary>

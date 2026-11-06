@@ -23,10 +23,15 @@ namespace LocalAchievements
         private readonly HashSet<Guid> _pendingReapply = new HashSet<Guid>();
         private readonly HashSet<Guid> _reapplyRetried = new HashSet<Guid>();
         private readonly object _reapplyLock = new object();
-        private readonly Dictionary<Guid, string> _pendingDisplay = new Dictionary<Guid, string>();
+        private class RestoredGameInfo
+        {
+            public Guid GameId { get; set; }
+            public string Name { get; set; }
+            public int Count { get; set; }
+        }
+
+        private readonly Dictionary<Guid, RestoredGameInfo> _pendingDisplay = new Dictionary<Guid, RestoredGameInfo>();
         private readonly object _pendingDisplayLock = new object();
-        private System.Threading.Timer _confirmTimer;
-        private int _confirmAttempts;
         private bool _restartPromptOpen;
 
         private readonly Guid SteamPluginId = Guid.Parse("cb91dfc9-b977-43bf-8e70-55f46e410fab");
@@ -108,9 +113,6 @@ namespace LocalAchievements
 
                 _reapplyTimer?.Dispose();
                 _reapplyTimer = null;
-
-                _confirmTimer?.Dispose();
-                _confirmTimer = null;
             }
             catch (Exception ex)
             {
@@ -130,7 +132,6 @@ namespace LocalAchievements
                 }
 
                 _reapplyTimer = new System.Threading.Timer(_ => ProcessPendingReapply(), null, System.Threading.Timeout.Infinite, System.Threading.Timeout.Infinite);
-                _confirmTimer = new System.Threading.Timer(_ => ConfirmAndPromptRestart(), null, System.Threading.Timeout.Infinite, System.Threading.Timeout.Infinite);
 
                 _successStoryWatcher = new FileSystemWatcher(directory, "*.json")
                 {
@@ -164,7 +165,7 @@ namespace LocalAchievements
                 }
 
                 lock (_reapplyLock) { _pendingReapply.Add(gameId); }
-                _reapplyTimer?.Change(5000, System.Threading.Timeout.Infinite);
+                _reapplyTimer?.Change(10000, System.Threading.Timeout.Infinite);
             }
             catch (Exception ex)
             {
@@ -188,7 +189,7 @@ namespace LocalAchievements
 
             if (ids.Count == 0 || !_settingsVM.Settings.AutoReapplyAchievements) return;
 
-            var restored = new List<string>();
+            var restoredItems = new List<RestoredGameInfo>();
             bool retryScheduled = false;
 
             foreach (var id in ids)
@@ -202,8 +203,9 @@ namespace LocalAchievements
 
                     if (count > 0)
                     {
-                        restored.Add(game.Name);
-                        MarkPendingDisplay(game);
+                        var info = new RestoredGameInfo { GameId = game.Id, Name = game.Name, Count = count };
+                        restoredItems.Add(info);
+                        MarkPendingDisplay(game, count);
                         AdvancedLogger.Log($"[REAPPLY] {game.Name}: SuccessStory data changed; {count} achievements restored.");
                     }
                     else if (note != null && note.StartsWith("Unexpected error", StringComparison.Ordinal) && MarkReapplyRetry(id))
@@ -225,108 +227,123 @@ namespace LocalAchievements
                 lock (_reapplyLock) { _reapplyRetried.Clear(); }
             }
 
-            if (restored.Count > 0)
+            if (restoredItems.Count > 0)
             {
-                string names = string.Join(", ", restored.Take(3));
-                if (restored.Count > 3) names += $" +{restored.Count - 3}";
+                string notifText;
+                int totalCount = restoredItems.Sum(i => i.Count);
+
+                if (restoredItems.Count == 1)
+                {
+                    notifText = string.Format(
+                        ResourceProvider.GetString("LOCLocalAchievementsReappliedNotificationSingle"),
+                        restoredItems[0].Name,
+                        restoredItems[0].Count);
+                }
+                else
+                {
+                    string names = string.Join(", ", restoredItems.Take(3).Select(i => i.Name));
+                    if (restoredItems.Count > 3) names += $" +{restoredItems.Count - 3}";
+
+                    notifText = string.Format(
+                        ResourceProvider.GetString("LOCLocalAchievementsReappliedNotificationMultiple"),
+                        totalCount,
+                        names);
+                }
 
                 PlayniteApi.Notifications.Add(new NotificationMessage(
                     Guid.NewGuid().ToString(),
-                    string.Format(ResourceProvider.GetString("LOCLocalAchievementsReappliedNotification"), names),
+                    notifText,
                     NotificationType.Info,
                     () => PromptRestartForPending()));
 
-                _confirmAttempts = 0;
-                _confirmTimer?.Change(20000, System.Threading.Timeout.Infinite);
+                PlayniteApi.MainView.UIDispatcher.Invoke(() => PromptRestartForRestored(restoredItems));
             }
         }
 
-        private void MarkPendingDisplay(Game game)
+        private void MarkPendingDisplay(Game game, int count = 0)
         {
-            lock (_pendingDisplayLock) { _pendingDisplay[game.Id] = game.Name; }
+            if (game == null) return;
+            lock (_pendingDisplayLock)
+            {
+                if (_pendingDisplay.TryGetValue(game.Id, out var existing))
+                {
+                    existing.Name = game.Name;
+                    if (count > 0) existing.Count = count;
+                }
+                else
+                {
+                    _pendingDisplay[game.Id] = new RestoredGameInfo
+                    {
+                        GameId = game.Id,
+                        Name = game.Name,
+                        Count = count
+                    };
+                }
+            }
         }
 
-        private List<string> PendingDisplayNames(IEnumerable<Guid> onlyIds = null)
+        private List<RestoredGameInfo> PendingDisplayInfos(IEnumerable<Guid> onlyIds = null)
         {
             lock (_pendingDisplayLock)
             {
                 var ids = onlyIds == null ? null : new HashSet<Guid>(onlyIds);
-                return _pendingDisplay.Where(p => ids == null || ids.Contains(p.Key)).Select(p => p.Value).ToList();
+                return _pendingDisplay.Values
+                    .Where(p => ids == null || ids.Contains(p.GameId))
+                    .ToList();
             }
-        }
-
-        private void ConfirmAndPromptRestart()
-        {
-            if (!_settingsVM.Settings.AutoReapplyAchievements) return;
-
-            List<Guid> pending;
-            lock (_pendingDisplayLock) { pending = _pendingDisplay.Keys.ToList(); }
-            if (pending.Count == 0) return;
-
-            var confirmed = new List<string>();
-            var rewritten = new List<string>();
-
-            foreach (var id in pending)
-            {
-                try
-                {
-                    var game = PlayniteApi.Database.Games.Get(id);
-                    if (game == null) continue;
-
-                    int count = _syncService.Sync(game, out string note);
-                    if (count > 0) rewritten.Add(game.Name);
-                    else if (note == null) confirmed.Add(game.Name);
-                }
-                catch (Exception ex)
-                {
-                    AdvancedLogger.Log($"[FAIL] Could not confirm the restored achievements for {id}: {ex.Message}");
-                }
-            }
-
-            if (rewritten.Count > 0 && _confirmAttempts < 3)
-            {
-                _confirmAttempts++;
-                AdvancedLogger.Log($"[REAPPLY] SuccessStory changed the data again for {rewritten.Count} game(s); checking once more.");
-                _confirmTimer?.Change(15000, System.Threading.Timeout.Infinite);
-                return;
-            }
-
-            var ready = confirmed.Concat(rewritten).ToList();
-            if (ready.Count == 0)
-            {
-                AdvancedLogger.Log("[FAIL] The restored achievements could not be confirmed on disk; no restart was offered.");
-                return;
-            }
-
-            AdvancedLogger.Log($"[REAPPLY] Confirmed on disk: {string.Join(", ", ready.Take(5))}.");
-            PlayniteApi.MainView.UIDispatcher.Invoke(() => PromptRestartForDisplay(ready));
         }
 
         private void PromptRestartForPending()
         {
-            var names = PendingDisplayNames();
-            if (names.Count > 0) PromptRestartForDisplay(names);
+            var pending = PendingDisplayInfos();
+            if (pending.Count > 0)
+            {
+                PlayniteApi.MainView.UIDispatcher.Invoke(() => PromptRestartForRestored(pending));
+            }
         }
 
-        private void PromptRestartForDisplay(List<string> names)
+        private void PromptRestartForRestored(List<RestoredGameInfo> items)
         {
             if (_restartPromptOpen) return;
+            if (items == null || items.Count == 0) return;
 
             if (PlayniteApi.Database.Games.Any(g => g.IsRunning))
             {
-                AdvancedLogger.Log("[REAPPLY] A game is running; the restart offer was postponed.");
+                AdvancedLogger.Log("[REAPPLY] A game is running; on-screen restart dialog postponed.");
                 return;
             }
 
             _restartPromptOpen = true;
             try
             {
-                string list = string.Join("\n", names.Take(5).Select(n => "- " + n));
-                if (names.Count > 5) list += "\n+" + (names.Count - 5);
+                string promptMessage;
+                string promptTitle = ResourceProvider.GetString("LOCLocalAchievementsSyncComplete");
+
+                int totalCount = items.Sum(i => i.Count);
+
+                if (items.Count == 1)
+                {
+                    var single = items[0];
+                    promptMessage = string.Format(
+                        ResourceProvider.GetString("LOCLocalAchievementsReappliedPromptSingle"),
+                        single.Count,
+                        single.Name);
+                }
+                else
+                {
+                    string list = string.Join("\n", items.Take(5).Select(i =>
+                        $"- {i.Name}: {string.Format(ResourceProvider.GetString("LOCLocalAchievementsAchievementCount"), i.Count)}"));
+                    if (items.Count > 5) list += "\n+" + (items.Count - 5);
+
+                    promptMessage = string.Format(
+                        ResourceProvider.GetString("LOCLocalAchievementsReappliedPromptMultiple"),
+                        list,
+                        totalCount);
+                }
 
                 var answer = PlayniteApi.Dialogs.ShowMessage(
-                    string.Format(ResourceProvider.GetString("LOCLocalAchievementsReappliedRestartPrompt"), list),
-                    ResourceProvider.GetString("LOCLocalAchievementsSteamToolsTitle"),
+                    promptMessage,
+                    promptTitle,
                     System.Windows.MessageBoxButton.YesNo);
 
                 if (answer == System.Windows.MessageBoxResult.Yes)
@@ -343,6 +360,26 @@ namespace LocalAchievements
 
         private void RestartPlaynite()
         {
+            try
+            {
+                lock (_pendingDisplayLock)
+                {
+                    foreach (var info in _pendingDisplay.Values)
+                    {
+                        var g = PlayniteApi.Database.Games.Get(info.GameId);
+                        if (g != null && _syncService.IsSteamToolsGame(g))
+                        {
+                            _syncService.Sync(g);
+                            AdvancedLogger.Log($"[REAPPLY] Pre-restart sync confirmed for {g.Name}.");
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                AdvancedLogger.Log($"[FAIL] Pre-restart sync failed: {ex.Message}");
+            }
+
             string playniteExe = System.Diagnostics.Process.GetCurrentProcess().MainModule.FileName;
 
             System.Diagnostics.ProcessStartInfo restartInfo = new System.Diagnostics.ProcessStartInfo
@@ -609,7 +646,7 @@ namespace LocalAchievements
                             game.Modified = DateTime.Now;
                             PlayniteApi.Database.Games.Update(game);
                             totalUpdated += count;
-                            MarkPendingDisplay(game);
+                            MarkPendingDisplay(game, count);
                         }
                         else if (!string.IsNullOrEmpty(reason))
                         {
@@ -650,9 +687,9 @@ namespace LocalAchievements
                     });
                 }
             }
-            else if (PendingDisplayNames(context.Games.Select(g => g.Id)).Count > 0)
+            else if (PendingDisplayInfos(context.Games.Select(g => g.Id)).Count > 0)
             {
-                PromptRestartForDisplay(PendingDisplayNames(context.Games.Select(g => g.Id)));
+                PromptRestartForRestored(PendingDisplayInfos(context.Games.Select(g => g.Id)));
             }
             else if (failures.Count > 0)
             {
@@ -743,9 +780,7 @@ namespace LocalAchievements
 
                     if (count > 0)
                     {
-                        MarkPendingDisplay(args.Game);
-                        args.Game.Modified = DateTime.Now;
-                        PlayniteApi.Database.Games.Update(args.Game);
+                        MarkPendingDisplay(args.Game, count);
 
                         string notifText = string.Format(ResourceProvider.GetString("LOCLocalAchievementsTrackerNotification"), count, args.Game.Name);
 
@@ -796,9 +831,7 @@ namespace LocalAchievements
                             if (count > 0)
                             {
                                 updatedGames++;
-                                MarkPendingDisplay(game);
-                                game.Modified = DateTime.Now;
-                                PlayniteApi.Database.Games.Update(game);
+                                MarkPendingDisplay(game, count);
                             }
 
                             if (_settingsVM.Settings.AutoSyncPlaytime)
