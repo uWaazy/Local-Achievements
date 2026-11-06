@@ -39,7 +39,13 @@ namespace LocalAchievements.Services
     {
         private readonly IPlayniteAPI _api;
         private const string SSGuid = "cebe6d32-8c46-4459-b993-5a5189d60788";
-        private static readonly Dictionary<string, DateTime> ownWrites = new Dictionary<string, DateTime>(StringComparer.OrdinalIgnoreCase);
+        private class OwnWrite
+        {
+            public DateTime FileTime;
+            public DateTime At;
+        }
+
+        private static readonly Dictionary<string, OwnWrite> ownWrites = new Dictionary<string, OwnWrite>(StringComparer.OrdinalIgnoreCase);
         private static readonly object ownWritesLock = new object();
 
         public string SuccessStoryDirectory => Path.Combine(_api.Paths.ExtensionsDataPath, SSGuid, "SuccessStory");
@@ -49,7 +55,7 @@ namespace LocalAchievements.Services
             try
             {
                 DateTime written = File.GetLastWriteTimeUtc(path);
-                lock (ownWritesLock) { ownWrites[path] = written; }
+                lock (ownWritesLock) { ownWrites[path] = new OwnWrite { FileTime = written, At = DateTime.UtcNow }; }
             }
             catch { }
         }
@@ -59,9 +65,17 @@ namespace LocalAchievements.Services
             try
             {
                 DateTime current = File.GetLastWriteTimeUtc(path);
-                lock (ownWritesLock) { return ownWrites.TryGetValue(path, out DateTime recorded) && recorded == current; }
+                lock (ownWritesLock) { return ownWrites.TryGetValue(path, out OwnWrite recorded) && recorded.FileTime == current; }
             }
             catch { return false; }
+        }
+
+        public static double? SecondsSinceOwnWrite(string path)
+        {
+            lock (ownWritesLock)
+            {
+                return ownWrites.TryGetValue(path, out OwnWrite recorded) ? (DateTime.UtcNow - recorded.At).TotalSeconds : (double?)null;
+            }
         }
 
         public SuccessStorySyncService(IPlayniteAPI api) { _api = api; }

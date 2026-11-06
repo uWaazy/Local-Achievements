@@ -23,6 +23,11 @@ namespace LocalAchievements
         private readonly HashSet<Guid> _pendingReapply = new HashSet<Guid>();
         private readonly HashSet<Guid> _reapplyRetried = new HashSet<Guid>();
         private readonly object _reapplyLock = new object();
+        private readonly Dictionary<Guid, string> _pendingDisplay = new Dictionary<Guid, string>();
+        private readonly object _pendingDisplayLock = new object();
+        private System.Threading.Timer _confirmTimer;
+        private int _confirmAttempts;
+        private bool _restartPromptOpen;
 
         private readonly Guid SteamPluginId = Guid.Parse("cb91dfc9-b977-43bf-8e70-55f46e410fab");
 
@@ -103,6 +108,9 @@ namespace LocalAchievements
 
                 _reapplyTimer?.Dispose();
                 _reapplyTimer = null;
+
+                _confirmTimer?.Dispose();
+                _confirmTimer = null;
             }
             catch (Exception ex)
             {
@@ -122,6 +130,7 @@ namespace LocalAchievements
                 }
 
                 _reapplyTimer = new System.Threading.Timer(_ => ProcessPendingReapply(), null, System.Threading.Timeout.Infinite, System.Threading.Timeout.Infinite);
+                _confirmTimer = new System.Threading.Timer(_ => ConfirmAndPromptRestart(), null, System.Threading.Timeout.Infinite, System.Threading.Timeout.Infinite);
 
                 _successStoryWatcher = new FileSystemWatcher(directory, "*.json")
                 {
@@ -146,6 +155,13 @@ namespace LocalAchievements
                 if (!_settingsVM.Settings.AutoReapplyAchievements) return;
                 if (!Guid.TryParse(Path.GetFileNameWithoutExtension(path), out Guid gameId)) return;
                 if (SuccessStorySyncService.IsOwnWrite(path)) return;
+
+                double? sinceOwnWrite = SuccessStorySyncService.SecondsSinceOwnWrite(path);
+                if (sinceOwnWrite.HasValue && sinceOwnWrite.Value < 60)
+                {
+                    string gameName = PlayniteApi.Database.Games.Get(gameId)?.Name ?? gameId.ToString();
+                    AdvancedLogger.Log($"[REAPPLY] SuccessStory rewrote the data of {gameName} {sinceOwnWrite.Value:0} s after our own write.");
+                }
 
                 lock (_reapplyLock) { _pendingReapply.Add(gameId); }
                 _reapplyTimer?.Change(5000, System.Threading.Timeout.Infinite);
@@ -187,8 +203,7 @@ namespace LocalAchievements
                     if (count > 0)
                     {
                         restored.Add(game.Name);
-                        game.Modified = DateTime.Now;
-                        PlayniteApi.Database.Games.Update(game);
+                        MarkPendingDisplay(game);
                         AdvancedLogger.Log($"[REAPPLY] {game.Name}: SuccessStory data changed; {count} achievements restored.");
                     }
                     else if (note != null && note.StartsWith("Unexpected error", StringComparison.Ordinal) && MarkReapplyRetry(id))
@@ -218,7 +233,111 @@ namespace LocalAchievements
                 PlayniteApi.Notifications.Add(new NotificationMessage(
                     Guid.NewGuid().ToString(),
                     string.Format(ResourceProvider.GetString("LOCLocalAchievementsReappliedNotification"), names),
-                    NotificationType.Info));
+                    NotificationType.Info,
+                    () => PromptRestartForPending()));
+
+                _confirmAttempts = 0;
+                _confirmTimer?.Change(20000, System.Threading.Timeout.Infinite);
+            }
+        }
+
+        private void MarkPendingDisplay(Game game)
+        {
+            lock (_pendingDisplayLock) { _pendingDisplay[game.Id] = game.Name; }
+        }
+
+        private List<string> PendingDisplayNames(IEnumerable<Guid> onlyIds = null)
+        {
+            lock (_pendingDisplayLock)
+            {
+                var ids = onlyIds == null ? null : new HashSet<Guid>(onlyIds);
+                return _pendingDisplay.Where(p => ids == null || ids.Contains(p.Key)).Select(p => p.Value).ToList();
+            }
+        }
+
+        private void ConfirmAndPromptRestart()
+        {
+            if (!_settingsVM.Settings.AutoReapplyAchievements) return;
+
+            List<Guid> pending;
+            lock (_pendingDisplayLock) { pending = _pendingDisplay.Keys.ToList(); }
+            if (pending.Count == 0) return;
+
+            var confirmed = new List<string>();
+            var rewritten = new List<string>();
+
+            foreach (var id in pending)
+            {
+                try
+                {
+                    var game = PlayniteApi.Database.Games.Get(id);
+                    if (game == null) continue;
+
+                    int count = _syncService.Sync(game, out string note);
+                    if (count > 0) rewritten.Add(game.Name);
+                    else if (note == null) confirmed.Add(game.Name);
+                }
+                catch (Exception ex)
+                {
+                    AdvancedLogger.Log($"[FAIL] Could not confirm the restored achievements for {id}: {ex.Message}");
+                }
+            }
+
+            if (rewritten.Count > 0 && _confirmAttempts < 3)
+            {
+                _confirmAttempts++;
+                AdvancedLogger.Log($"[REAPPLY] SuccessStory changed the data again for {rewritten.Count} game(s); checking once more.");
+                _confirmTimer?.Change(15000, System.Threading.Timeout.Infinite);
+                return;
+            }
+
+            var ready = confirmed.Concat(rewritten).ToList();
+            if (ready.Count == 0)
+            {
+                AdvancedLogger.Log("[FAIL] The restored achievements could not be confirmed on disk; no restart was offered.");
+                return;
+            }
+
+            AdvancedLogger.Log($"[REAPPLY] Confirmed on disk: {string.Join(", ", ready.Take(5))}.");
+            PlayniteApi.MainView.UIDispatcher.Invoke(() => PromptRestartForDisplay(ready));
+        }
+
+        private void PromptRestartForPending()
+        {
+            var names = PendingDisplayNames();
+            if (names.Count > 0) PromptRestartForDisplay(names);
+        }
+
+        private void PromptRestartForDisplay(List<string> names)
+        {
+            if (_restartPromptOpen) return;
+
+            if (PlayniteApi.Database.Games.Any(g => g.IsRunning))
+            {
+                AdvancedLogger.Log("[REAPPLY] A game is running; the restart offer was postponed.");
+                return;
+            }
+
+            _restartPromptOpen = true;
+            try
+            {
+                string list = string.Join("\n", names.Take(5).Select(n => "- " + n));
+                if (names.Count > 5) list += "\n+" + (names.Count - 5);
+
+                var answer = PlayniteApi.Dialogs.ShowMessage(
+                    string.Format(ResourceProvider.GetString("LOCLocalAchievementsReappliedRestartPrompt"), list),
+                    ResourceProvider.GetString("LOCLocalAchievementsSteamToolsTitle"),
+                    System.Windows.MessageBoxButton.YesNo);
+
+                if (answer == System.Windows.MessageBoxResult.Yes)
+                {
+                    AdvancedLogger.Log("[REAPPLY] Restarting Playnite so SuccessStory loads the restored achievements.");
+                    RestartPlaynite();
+                }
+            }
+            finally
+            {
+                _restartPromptOpen = false;
             }
         }
 
@@ -490,6 +609,7 @@ namespace LocalAchievements
                             game.Modified = DateTime.Now;
                             PlayniteApi.Database.Games.Update(game);
                             totalUpdated += count;
+                            MarkPendingDisplay(game);
                         }
                         else if (!string.IsNullOrEmpty(reason))
                         {
@@ -529,6 +649,10 @@ namespace LocalAchievements
                         RefreshPlayniteUI(gameToRefresh);
                     });
                 }
+            }
+            else if (PendingDisplayNames(context.Games.Select(g => g.Id)).Count > 0)
+            {
+                PromptRestartForDisplay(PendingDisplayNames(context.Games.Select(g => g.Id)));
             }
             else if (failures.Count > 0)
             {
@@ -619,6 +743,7 @@ namespace LocalAchievements
 
                     if (count > 0)
                     {
+                        MarkPendingDisplay(args.Game);
                         args.Game.Modified = DateTime.Now;
                         PlayniteApi.Database.Games.Update(args.Game);
 
@@ -671,6 +796,7 @@ namespace LocalAchievements
                             if (count > 0)
                             {
                                 updatedGames++;
+                                MarkPendingDisplay(game);
                                 game.Modified = DateTime.Now;
                                 PlayniteApi.Database.Games.Update(game);
                             }

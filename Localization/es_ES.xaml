@@ -49,6 +49,8 @@
     <sys:String x:Key="LOCLocalAchievementsSettingsCheckUpdates">Buscar actualizaciones ahora</sys:String>
 
     <sys:String x:Key="LOCLocalAchievementsSettingsAutoReapply">Restaurar los logros automáticamente cuando SuccessStory actualice sus datos</sys:String>
-    <sys:String x:Key="LOCLocalAchievementsReappliedNotification">SuccessStory actualizó sus datos. Logros restaurados en: {0}</sys:String>
+    <sys:String x:Key="LOCLocalAchievementsReappliedNotification">Logros restaurados en los datos de SuccessStory en: {0}. Aparecen después de reiniciar Playnite. Haz clic para reiniciar.</sys:String>
+
+    <sys:String xml:space="preserve" x:Key="LOCLocalAchievementsReappliedRestartPrompt">Los logros se restauraron y se confirmaron en el disco en:&#x0a;{0}&#x0a;&#x0a;SuccessStory solo los muestra después de reiniciar Playnite. ¿Reiniciar ahora?</sys:String>
 
 </ResourceDictionary>
