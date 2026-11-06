@@ -63,16 +63,25 @@ namespace LocalAchievements.Services
 
         private string WorkDirectory => Path.Combine(Path.GetTempPath(), "LocalAchievements_update");
 
-        private string FeedUrl
+        private static bool localOverrideWarned;
+
+        private string LocalFeedOverride()
         {
-            get
+            string custom = feedOverride?.Invoke();
+            if (string.IsNullOrWhiteSpace(custom)) return null;
+
+            if (Uri.TryCreate(custom.Trim(), UriKind.Absolute, out Uri uri) && uri.IsFile && !uri.IsUnc)
+                return uri.AbsoluteUri;
+
+            if (!localOverrideWarned)
             {
-                string custom = feedOverride?.Invoke();
-                return string.IsNullOrWhiteSpace(custom)
-                    ? $"https://api.github.com/repos/{Owner}/{Repository}/releases/latest"
-                    : custom.Trim();
+                localOverrideWarned = true;
+                AdvancedLogger.Log("[UPDATE] UpdateFeedUrl ignored: only local file addresses are accepted.");
             }
+            return null;
         }
+
+        private string FeedUrl => LocalFeedOverride() ?? $"https://api.github.com/repos/{Owner}/{Repository}/releases/latest";
 
         public static Version ParseVersion(string text)
         {
@@ -234,8 +243,8 @@ namespace LocalAchievements.Services
             if (string.IsNullOrWhiteSpace(url)) return false;
             if (!Uri.TryCreate(url, UriKind.Absolute, out Uri uri)) return false;
 
-            if (!string.IsNullOrWhiteSpace(feedOverride?.Invoke()))
-                return uri.Scheme == Uri.UriSchemeFile || uri.Scheme == Uri.UriSchemeHttps;
+            if (LocalFeedOverride() != null)
+                return uri.IsFile && !uri.IsUnc;
 
             return uri.Scheme == Uri.UriSchemeHttps
                 && uri.Host.Equals("github.com", StringComparison.OrdinalIgnoreCase)

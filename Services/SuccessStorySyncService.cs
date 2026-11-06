@@ -39,6 +39,30 @@ namespace LocalAchievements.Services
     {
         private readonly IPlayniteAPI _api;
         private const string SSGuid = "cebe6d32-8c46-4459-b993-5a5189d60788";
+        private static readonly Dictionary<string, DateTime> ownWrites = new Dictionary<string, DateTime>(StringComparer.OrdinalIgnoreCase);
+        private static readonly object ownWritesLock = new object();
+
+        public string SuccessStoryDirectory => Path.Combine(_api.Paths.ExtensionsDataPath, SSGuid, "SuccessStory");
+
+        private static void RecordOwnWrite(string path)
+        {
+            try
+            {
+                DateTime written = File.GetLastWriteTimeUtc(path);
+                lock (ownWritesLock) { ownWrites[path] = written; }
+            }
+            catch { }
+        }
+
+        public static bool IsOwnWrite(string path)
+        {
+            try
+            {
+                DateTime current = File.GetLastWriteTimeUtc(path);
+                lock (ownWritesLock) { return ownWrites.TryGetValue(path, out DateTime recorded) && recorded == current; }
+            }
+            catch { return false; }
+        }
 
         public SuccessStorySyncService(IPlayniteAPI api) { _api = api; }
 
@@ -199,7 +223,17 @@ namespace LocalAchievements.Services
             return Sync(game, out _);
         }
 
+        private static readonly object syncLock = new object();
+
         public int Sync(Game game, out string reason)
+        {
+            lock (syncLock)
+            {
+                return SyncCore(game, out reason);
+            }
+        }
+
+        private int SyncCore(Game game, out string reason)
         {
             reason = null;
             try
@@ -305,6 +339,7 @@ namespace LocalAchievements.Services
                 if (updated > 0 || builtFromSchema)
                 {
                     File.WriteAllText(jsonPath, JsonConvert.SerializeObject(db, Formatting.Indented));
+                    RecordOwnWrite(jsonPath);
                     if (updated <= 10)
                         foreach (var m in matches) AdvancedLogger.Log($"[MATCH] {game.Name}: {m}");
                     AdvancedLogger.Log($"[OK] {game.Name}: {updated} achievements injected into SuccessStory.");
@@ -337,7 +372,7 @@ namespace LocalAchievements.Services
                 sb.AppendLine("=== Local Achievements diagnostic ===");
                 sb.AppendLine($"Time: {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
                 sb.AppendLine($"Playnite: {_api.ApplicationInfo?.ApplicationVersion}");
-                sb.AppendLine($"Plugin assembly: {typeof(SuccessStorySyncService).Assembly.GetName().Version}");
+                sb.AppendLine($"Plugin version: {PluginInfo.Version}");
                 sb.AppendLine($"Game: {game.Name}");
                 sb.AppendLine($"Playnite Id: {game.Id}");
                 sb.AppendLine($"GameId (AppID): {game.GameId}");

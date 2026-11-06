@@ -48,4 +48,7 @@
     <sys:String x:Key="LOCLocalAchievementsSettingsUpdateModeOff">Não verificar atualizações</sys:String>
     <sys:String x:Key="LOCLocalAchievementsSettingsCheckUpdates">Verificar atualizações agora</sys:String>
 
+    <sys:String x:Key="LOCLocalAchievementsSettingsAutoReapply">Restaurar as conquistas automaticamente quando o SuccessStory atualizar os dados dele</sys:String>
+    <sys:String x:Key="LOCLocalAchievementsReappliedNotification">O SuccessStory atualizou os dados dele. Conquistas restauradas em: {0}</sys:String>
+
 </ResourceDictionary>

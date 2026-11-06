@@ -18,6 +18,11 @@ namespace LocalAchievements
         private SteamPlaytimeService _playtimeService;
         private readonly LocalAchievementsSettingsViewModel _settingsVM;
         private UpdateService _updateService;
+        private FileSystemWatcher _successStoryWatcher;
+        private System.Threading.Timer _reapplyTimer;
+        private readonly HashSet<Guid> _pendingReapply = new HashSet<Guid>();
+        private readonly HashSet<Guid> _reapplyRetried = new HashSet<Guid>();
+        private readonly object _reapplyLock = new object();
 
         private readonly Guid SteamPluginId = Guid.Parse("cb91dfc9-b977-43bf-8e70-55f46e410fab");
 
@@ -81,6 +86,140 @@ namespace LocalAchievements
             PlayniteApi.Dialogs.ShowMessage(
                 string.Format(ResourceProvider.GetString("LOCLocalAchievementsDiagnosticDone"), report),
                 ResourceProvider.GetString("LOCLocalAchievementsSteamToolsTitle"));
+        }
+
+        public override void Dispose()
+        {
+            try
+            {
+                PlayniteApi.Database.Games.ItemCollectionChanged -= Games_ItemCollectionChanged;
+
+                if (_successStoryWatcher != null)
+                {
+                    _successStoryWatcher.EnableRaisingEvents = false;
+                    _successStoryWatcher.Dispose();
+                    _successStoryWatcher = null;
+                }
+
+                _reapplyTimer?.Dispose();
+                _reapplyTimer = null;
+            }
+            catch (Exception ex)
+            {
+                logger.Error(ex, "Error while releasing plugin resources.");
+            }
+        }
+
+        private void StartSuccessStoryWatcher()
+        {
+            try
+            {
+                string directory = _syncService.SuccessStoryDirectory;
+                if (!Directory.Exists(directory))
+                {
+                    AdvancedLogger.Log("[REAPPLY] SuccessStory data folder not found; automatic restore is disabled.");
+                    return;
+                }
+
+                _reapplyTimer = new System.Threading.Timer(_ => ProcessPendingReapply(), null, System.Threading.Timeout.Infinite, System.Threading.Timeout.Infinite);
+
+                _successStoryWatcher = new FileSystemWatcher(directory, "*.json")
+                {
+                    NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.FileName | NotifyFilters.Size,
+                    IncludeSubdirectories = false
+                };
+                _successStoryWatcher.Changed += (sender, e) => QueueReapply(e.FullPath);
+                _successStoryWatcher.Created += (sender, e) => QueueReapply(e.FullPath);
+                _successStoryWatcher.Renamed += (sender, e) => QueueReapply(e.FullPath);
+                _successStoryWatcher.EnableRaisingEvents = true;
+            }
+            catch (Exception ex)
+            {
+                AdvancedLogger.Log("[FAIL] Could not watch the SuccessStory folder: " + ex.Message);
+            }
+        }
+
+        private void QueueReapply(string path)
+        {
+            try
+            {
+                if (!_settingsVM.Settings.AutoReapplyAchievements) return;
+                if (!Guid.TryParse(Path.GetFileNameWithoutExtension(path), out Guid gameId)) return;
+                if (SuccessStorySyncService.IsOwnWrite(path)) return;
+
+                lock (_reapplyLock) { _pendingReapply.Add(gameId); }
+                _reapplyTimer?.Change(5000, System.Threading.Timeout.Infinite);
+            }
+            catch (Exception ex)
+            {
+                AdvancedLogger.Log("[FAIL] Could not queue a SuccessStory change: " + ex.Message);
+            }
+        }
+
+        private bool MarkReapplyRetry(Guid id)
+        {
+            lock (_reapplyLock) { return _reapplyRetried.Add(id); }
+        }
+
+        private void ProcessPendingReapply()
+        {
+            List<Guid> ids;
+            lock (_reapplyLock)
+            {
+                ids = _pendingReapply.ToList();
+                _pendingReapply.Clear();
+            }
+
+            if (ids.Count == 0 || !_settingsVM.Settings.AutoReapplyAchievements) return;
+
+            var restored = new List<string>();
+            bool retryScheduled = false;
+
+            foreach (var id in ids)
+            {
+                try
+                {
+                    var game = PlayniteApi.Database.Games.Get(id);
+                    if (game == null || !_syncService.IsSteamToolsGame(game)) continue;
+
+                    int count = _syncService.Sync(game, out string note);
+
+                    if (count > 0)
+                    {
+                        restored.Add(game.Name);
+                        game.Modified = DateTime.Now;
+                        PlayniteApi.Database.Games.Update(game);
+                        AdvancedLogger.Log($"[REAPPLY] {game.Name}: SuccessStory data changed; {count} achievements restored.");
+                    }
+                    else if (note != null && note.StartsWith("Unexpected error", StringComparison.Ordinal) && MarkReapplyRetry(id))
+                    {
+                        lock (_reapplyLock) { _pendingReapply.Add(id); }
+                        retryScheduled = true;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    AdvancedLogger.Log($"[FAIL] Restore after a SuccessStory refresh failed for {id}: {ex.Message}");
+                }
+            }
+
+            if (retryScheduled)
+                _reapplyTimer?.Change(10000, System.Threading.Timeout.Infinite);
+            else
+            {
+                lock (_reapplyLock) { _reapplyRetried.Clear(); }
+            }
+
+            if (restored.Count > 0)
+            {
+                string names = string.Join(", ", restored.Take(3));
+                if (restored.Count > 3) names += $" +{restored.Count - 3}";
+
+                PlayniteApi.Notifications.Add(new NotificationMessage(
+                    Guid.NewGuid().ToString(),
+                    string.Format(ResourceProvider.GetString("LOCLocalAchievementsReappliedNotification"), names),
+                    NotificationType.Info));
+            }
         }
 
         private void RestartPlaynite()
@@ -501,6 +640,8 @@ namespace LocalAchievements
         {
             PlayniteApi.Database.Games.ItemCollectionChanged += Games_ItemCollectionChanged;
 
+            AdvancedLogger.Log($"[STARTUP] Local Achievements {PluginInfo.Version}");
+            StartSuccessStoryWatcher();
             HandlePostUpdate();
             ScheduleUpdateCheck();
 
@@ -539,7 +680,7 @@ namespace LocalAchievements
                         }
                     }
 
-                    AdvancedLogger.Log($"[STARTUP] Checked {checkedGames} Steam Tools games, {updatedGames} updated, {gamesWithNotes} with notes (only changes are logged per game).");
+                    AdvancedLogger.Log($"[STARTUP] {PluginInfo.Version}: checked {checkedGames} Steam Tools games, {updatedGames} updated, {gamesWithNotes} with notes (only changes are logged per game).");
 
                     var selected = PlayniteApi.MainView.SelectedGames?.FirstOrDefault();
                     if (selected != null) RefreshPlayniteUI(selected);

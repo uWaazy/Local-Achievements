@@ -34,6 +34,10 @@ namespace LocalAchievements
             autoPlaytime.SetResourceReference(ContentControl.ContentProperty, "LOCLocalAchievementsSettingsAutoPlaytime");
             autoPlaytime.SetBinding(CheckBox.IsCheckedProperty, new Binding("Settings.AutoSyncPlaytime"));
 
+            var autoReapply = new CheckBox { Margin = new Thickness(0, 16, 0, 0) };
+            autoReapply.SetResourceReference(ContentControl.ContentProperty, "LOCLocalAchievementsSettingsAutoReapply");
+            autoReapply.SetBinding(CheckBox.IsCheckedProperty, new Binding("Settings.AutoReapplyAchievements"));
+
             var hint = new TextBlock
             {
                 Margin = new Thickness(0, 6, 0, 0),
@@ -83,6 +87,7 @@ namespace LocalAchievements
             panel.Children.Add(autoStartup);
             panel.Children.Add(autoPlaytime);
             panel.Children.Add(hint);
+            panel.Children.Add(autoReapply);
             panel.Children.Add(openLog);
             panel.Children.Add(updateLabel);
             panel.Children.Add(updateMode);

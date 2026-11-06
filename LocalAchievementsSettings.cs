@@ -10,6 +10,7 @@ namespace LocalAchievements
         private string steamId64 = string.Empty;
         private bool enableAutoSyncOnStartup = true;
         private bool autoSyncPlaytime = true;
+        private bool autoReapplyAchievements = true;
         private int updatePromptMode = 0;
         private string updateFeedUrl = string.Empty;
         private string lastRunVersion = string.Empty;
@@ -18,6 +19,7 @@ namespace LocalAchievements
         public string SteamId64 { get => steamId64; set => SetValue(ref steamId64, value); }
         public bool EnableAutoSyncOnStartup { get => enableAutoSyncOnStartup; set => SetValue(ref enableAutoSyncOnStartup, value); }
         public bool AutoSyncPlaytime { get => autoSyncPlaytime; set => SetValue(ref autoSyncPlaytime, value); }
+        public bool AutoReapplyAchievements { get => autoReapplyAchievements; set => SetValue(ref autoReapplyAchievements, value); }
         public int UpdatePromptMode { get => updatePromptMode; set => SetValue(ref updatePromptMode, value); }
         public string UpdateFeedUrl { get => updateFeedUrl; set => SetValue(ref updateFeedUrl, value); }
         public string LastRunVersion { get => lastRunVersion; set => SetValue(ref lastRunVersion, value); }
